@@ -5,7 +5,7 @@ from datetime import timedelta
 import altair as alt  # For more advanced charting
 
 # Define the directory where the workbooks are stored
-WORKBOOK_DIR = "/Users/anujagarwal/Desktop/NAV"  # Update this path to where your Excel workbooks are stored
+WORKBOOK_DIR = "NAV"  # Update this path to where your Excel workbooks are stored
 
 # Function to list available Excel files in the specified directory
 def list_workbooks(directory):
