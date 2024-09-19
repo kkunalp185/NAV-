@@ -3,7 +3,8 @@ import pandas as pd
 import os
 from datetime import timedelta
 import altair as alt  # For more advanced charting
-import openpyxl
+pip install openpyxl
+
 # Define the directory where the workbooks are stored
 WORKBOOK_DIR = "NAV"  # Update this path to where your Excel workbooks are stored
 
