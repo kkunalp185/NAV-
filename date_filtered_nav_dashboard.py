@@ -4,7 +4,6 @@ import os
 from datetime import timedelta
 import altair as alt  # For more advanced charting
 
-
 # Define the directory where the workbooks are stored
 WORKBOOK_DIR = "NAV"  # Update this path to where your Excel workbooks are stored
 
@@ -110,13 +109,15 @@ def main():
 
             st.altair_chart(line_chart, use_container_width=True)
 
-            # Remove column B and rename column 8 as "Returns" (if column 8 exists)
-            if ' 8' in filtered_data.columns:  # Replace with the exact column name if it differs
-                filtered_data = filtered_data.rename(columns={' 8': 'Returns'})
+            # Rename column I as "Returns"
+            if 'I' in filtered_data.columns:
+                filtered_data = filtered_data.rename(columns={'I': 'Returns'})
+
+            # Remove column B and rename column I as "Returns"
             filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')  # Assuming 'Stocks' is in column B
             
             # Display the filtered data as a table (showing columns A-J, except B)
-            st.write("### Data Table, without 'Stocks')")
+            st.write("### Data Table")
             st.dataframe(filtered_data.reset_index(drop=True))  # Reset index to remove the serial number
 
         else:
