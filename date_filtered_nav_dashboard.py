@@ -105,7 +105,7 @@ def main():
             filtered_data['Date'] = filtered_data['Date'].dt.date
 
             # Recalculate NAV to start from 100 for ranges other than '1 Day' and '5 Days'
-            if selected_range not in ["1 Day", "max"]:
+            if selected_range not in ["1 Day", "Max"]:
                 filtered_data = recalculate_nav(filtered_data)
                 chart_column = 'Rebased NAV'
             else:
