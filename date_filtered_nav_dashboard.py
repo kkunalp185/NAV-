@@ -83,7 +83,7 @@ def main():
 
         # Load NAV data (Columns A-J) from the selected workbook
         nav_data = load_nav_data(os.path.join(WORKBOOK_DIR, selected_workbook))
-
+        
         # Check if NAV data is successfully loaded
         if not nav_data.empty:
             st.success("Data loaded successfully!")
@@ -110,8 +110,8 @@ def main():
             st.altair_chart(line_chart, use_container_width=True)
 
             # Rename column I as "Returns"
-            if 'I' in filtered_data.columns:
-                filtered_data = filtered_data.rename(columns={'I': 'Returns'})
+            if 'Unnamed: 8' in filtered_data.columns:
+                filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
 
             # Remove column B and rename column I as "Returns"
             filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')  # Assuming 'Stocks' is in column B
@@ -125,3 +125,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
