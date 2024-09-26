@@ -4,6 +4,7 @@ import os
 from datetime import timedelta
 import altair as alt  # For more advanced charting
 
+
 # Define the directory where the workbooks are stored
 WORKBOOK_DIR = "NAV"  # Update this path to where your Excel workbooks are stored
 
@@ -17,7 +18,7 @@ def list_workbooks(directory):
         st.error("Directory not found. Please ensure the specified directory exists.")
         return []
 
-# Function to load data from the selected workbook (Columns A-J)
+# Function to load NAV data from the selected workbook
 def load_nav_data(file_path):
     try:
         # Read the first 10 columns (A-J) from the Excel file
@@ -32,8 +33,8 @@ def load_nav_data(file_path):
         data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
         data = data.sort_values(by='Date')  # Sort data by Date
         
-        # Drop rows with missing Date
-        data = data.dropna(subset=['Date'])
+        # Drop rows with missing Date or NAV
+        data = data.dropna(subset=['Date', 'NAV'])
 
         return data
     except Exception as e:
@@ -91,22 +92,23 @@ def main():
             # Filter the data based on selected date range
             filtered_data = filter_data_by_date(nav_data, selected_range)
 
-            # Display a line chart using Altair if 'NAV' column is present
-            if 'NAV' in filtered_data.columns:
-                # Remove the time from the Date column for cleaner display in the chart
-                filtered_data['Date'] = filtered_data['Date'].dt.date
+            # Remove the time from the Date column for cleaner display
+            filtered_data['Date'] = filtered_data['Date'].dt.date
 
-                # Display the filtered data as a line chart using Altair, with y-axis starting from 80
-                line_chart = alt.Chart(filtered_data).mark_line().encode(
-                    x='Date:T',
-                    y=alt.Y('NAV:Q', scale=alt.Scale(domain=[80, filtered_data['NAV'].max()])),
-                    tooltip=list(filtered_data.columns)  # Display all columns in tooltip
-                ).properties(
-                    width=700,
-                    height=400
-                )
+            # Ensure that we only use Date and NAV columns for the chart
+            filtered_chart_data = filtered_data[['Date', 'NAV']]
 
-                st.altair_chart(line_chart, use_container_width=True)
+            # Display the filtered data as a line chart using Altair, with y-axis starting from 80
+            line_chart = alt.Chart(filtered_chart_data).mark_line().encode(
+                x='Date:T',
+                y=alt.Y('NAV:Q', scale=alt.Scale(domain=[80, filtered_chart_data['NAV'].max()])),
+                tooltip=['Date:T', 'NAV:Q']
+            ).properties(
+                width=700,
+                height=400
+            )
+
+            st.altair_chart(line_chart, use_container_width=True)
 
             # Display the filtered data as a table (showing columns A-J)
             st.write("### Data Table (Columns A-J)")
