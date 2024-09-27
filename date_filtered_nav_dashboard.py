@@ -227,7 +227,7 @@ def git_add_commit_push(filename):
         subprocess.run(["git", "push"], check=True)
 
        
-    except subprocess.CalledProcessError as e:
+   
         
 
 # Streamlit app layout and logic
