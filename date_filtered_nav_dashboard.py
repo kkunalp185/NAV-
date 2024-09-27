@@ -35,12 +35,7 @@ def load_nav_data(file_path):
 
         # Convert Date column to datetime format
         data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-
-        # Remove the time component from the Date column
-        data['Date'] = data['Date'].dt.date
-        
-        # Sort data by Date
-        data = data.sort_values(by='Date') 
+        data = data.sort_values(by='Date')  # Sort data by Date
         
         # Drop rows with missing Date or NAV
         data = data.dropna(subset=['Date', 'NAV'])
@@ -88,7 +83,7 @@ def modify_workbook(file_path):
         
         # Save the modified workbook back to the same file
         modified_workbook.save(file_path)
-        st.success(f"Workbook {os.path.basename(file_path)} modified successfully!")
+        
     
     except Exception as e:
         st.error(f"Error modifying workbook: {e}")
@@ -214,7 +209,7 @@ def main():
 
         # Check if NAV data is successfully loaded
         if not nav_data.empty:
-            
+           
 
             # Remove column B ('Stocks') if it exists
             nav_data = nav_data.drop(columns=['Stocks'], errors='ignore')
@@ -225,7 +220,7 @@ def main():
 
             # Filter the data based on selected date range
             filtered_data = filter_data_by_date(nav_data, selected_range)
-
+            filtered_data['Date'] = filtered_data['Date'].dt.date
             # Recalculate NAV to start from 100 for ranges other than '1 Day' and '5 Days'
             if selected_range not in ["1 Day", "5 Days"]:
                 filtered_data = recalculate_nav(filtered_data)
