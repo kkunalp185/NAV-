@@ -197,7 +197,7 @@ def main():
 
             # Auto-run Excel modification when a selection is made
             workbook = openpyxl.load_workbook(file_path)
-            modified_workbook = modify_all_sheets(workbook)
+            modified_workbook = modify_all_sheets(workbook, file_path)
            
 
              # Refresh the dashboard after modification
