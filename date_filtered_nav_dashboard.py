@@ -197,7 +197,7 @@ def main():
             modified_workbook = modify_all_sheets(workbook)
             save_excel_to_memory(modified_workbook, file_path)
 
-            st.experimental_rerun()  # Refresh the dashboard after modification
+            st.experimental_rerun  # Refresh the dashboard after modification
 
 
 if __name__ == "__main__":
