@@ -143,12 +143,15 @@ def modify_all_sheets(workbook):
             nav_values.append(nav)
             ws.cell(row=current_row + i, column=10, value=nav)
 
+
+    
+    workbook.save(file_path)
+         
+
     return workbook
 
 # Function to save the modified Excel file locally
-def save_excel_to_memory(workbook, file_path):
-    workbook.save(file_path)
-    st.success(f"File saved successfully: {file_path}")
+
 
 # --- STREAMLIT MAIN LOGIC ---
 def main():
@@ -174,7 +177,7 @@ def main():
             filtered_data['Date'] = filtered_data['Date'].dt.date
 
             # Recalculate NAV for ranges other than "1 Day" and "5 Days"
-            if selected_range not in ["1 Day", "5 Days"]:
+            if selected_range not in ["1 Day", "Max"]:
                 filtered_data = recalculate_nav(filtered_data)
                 chart_column = 'Rebased NAV'
             else:
@@ -195,7 +198,7 @@ def main():
             # Auto-run Excel modification when a selection is made
             workbook = openpyxl.load_workbook(file_path)
             modified_workbook = modify_all_sheets(workbook)
-            save_excel_to_memory(modified_workbook, file_path)
+           
 
              # Refresh the dashboard after modification
 
