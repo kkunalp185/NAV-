@@ -24,7 +24,7 @@ jobs:
 
       - name: Run Python Script
         run: |
-          python your_script.py  # Run your Python script to modify files
+          python date_filtered_nav_dashboard.py  # Run your Python script to modify files
 
       - name: Commit and Push Changes
         run: |
