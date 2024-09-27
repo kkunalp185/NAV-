@@ -35,7 +35,12 @@ def load_nav_data(file_path):
 
         # Convert Date column to datetime format
         data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-        data = data.sort_values(by='Date')  # Sort data by Date
+
+        # Remove the time component from the Date column
+        data['Date'] = data['Date'].dt.date
+        
+        # Sort data by Date
+        data = data.sort_values(by='Date') 
         
         # Drop rows with missing Date or NAV
         data = data.dropna(subset=['Date', 'NAV'])
@@ -201,7 +206,7 @@ def main():
     if selected_workbook:
         # Trigger modification when the user selects a workbook or a date range
         file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
-       
+        
         modify_workbook(file_path)  # Automatically modify the selected workbook
 
         # Load modified NAV data from the selected workbook
@@ -230,7 +235,6 @@ def main():
 
             # Display the filtered data as a table
             
-            
 
             # Generate and display the Altair line chart
             st.write("### NAV Chart")
@@ -246,6 +250,5 @@ def main():
             st.altair_chart(line_chart, use_container_width=True)
             st.write("### Data Table")
             st.dataframe(filtered_data)
-
 if __name__ == "__main__":
     main()
