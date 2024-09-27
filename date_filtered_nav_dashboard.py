@@ -9,7 +9,7 @@ from datetime import datetime
 from openpyxl.styles import Font
 import yfinance as yf
 
-os.environ['YFINANCE_NO_CACHE'] = 'true'
+
 # Define the directory where the workbooks are stored (relative or absolute path)
 WORKBOOK_DIR = "NAV"  # Update this path to where your Excel workbooks are stored
 
