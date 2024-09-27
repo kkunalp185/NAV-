@@ -71,6 +71,7 @@ def recalculate_nav(filtered_data):
     return filtered_data
 
 # Function to modify the Excel file with your custom logic
+# Function to modify the Excel file with your custom logic
 def modify_all_sheets(workbook):
     for sheet_name in workbook.sheetnames:
         ws = workbook[sheet_name]
@@ -143,6 +144,8 @@ def modify_all_sheets(workbook):
         next_date_str = next_date.strftime('%Y-%m-%d')
 
         all_prices = {}
+        closing_dates = None  # Initialize closing_dates variable
+
         for stock_symbol in stocks.keys():
             ticker = yf.Ticker(stock_symbol)
 
@@ -159,6 +162,11 @@ def modify_all_sheets(workbook):
             except Exception as e:
                 st.error(f"Error fetching data for {stock_symbol}: {e}")
                 continue
+
+        # Check if we have valid data
+        if closing_dates is None:
+            st.error(f"No valid data found for any stocks in sheet {sheet_name}. Skipping.")
+            continue
 
         # Step 6: Insert the fetched data and perform calculations
         current_row = ws.max_row + 1
@@ -191,7 +199,7 @@ def modify_all_sheets(workbook):
 
     return workbook
 
-# Function to save the modified workbook
+
 def save_excel_to_memory(workbook):
     output = BytesIO()
     workbook.save(output)
