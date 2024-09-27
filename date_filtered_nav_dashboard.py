@@ -205,7 +205,7 @@ def modify_and_push_to_github(filename):
 
         # Save the modified Excel file locally
         workbook.save(file_path)
-        st.success(f"{filename} has been modified and saved locally.")
+        
 
         # Automatically push changes to GitHub
         git_add_commit_push(filename)
@@ -226,7 +226,7 @@ def git_add_commit_push(filename):
         # Git push to the remote repository
         subprocess.run(["git", "push"], check=True)
 
-        st.success(f"Changes to {filename} have been committed and pushed to GitHub.")
+       
     except subprocess.CalledProcessError as e:
         st.error(f"Error during git operation: {e}")
 
@@ -262,7 +262,7 @@ def main():
         
         # Check if NAV data is successfully loaded
         if not nav_data.empty:
-            st.success("Data loaded successfully!")
+           
 
             # Filter the data based on selected date range
             filtered_data = filter_data_by_date(nav_data, selected_range)
@@ -271,7 +271,7 @@ def main():
             filtered_data['Date'] = filtered_data['Date'].dt.date
 
             # Recalculate NAV to start from 100 for ranges other than '1 Day' and '5 Days'
-            if selected_range not in ["1 Day", "5 Days"]:
+            if selected_range not in ["1 Day", "Max"]:
                 filtered_data = recalculate_nav(filtered_data)
                 chart_column = 'Rebased NAV'
             else:
@@ -288,7 +288,11 @@ def main():
             )
 
             st.altair_chart(line_chart, use_container_width=True)
+            if 'Unnamed: 8' in filtered_data.columns:
+                filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
 
+            # Remove column B and rename column I as "Returns"
+            filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')
             # Display the filtered data as a table (showing columns A-J, except B)
             st.write("### Data Table")
             st.dataframe(filtered_data.reset_index(drop=True))  # Reset index to remove the serial number
