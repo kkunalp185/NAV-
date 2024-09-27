@@ -76,12 +76,17 @@ def modify_all_sheets(workbook):
     for sheet_name in workbook.sheetnames:
         ws = workbook[sheet_name]
         st.write(f"Modifying sheet: {sheet_name}")
+def modify_all_sheets(workbook):
+    for sheet_name in workbook.sheetnames:
+        ws = workbook[sheet_name]
+        print(f"Modifying sheet: {sheet_name}")
 
         # Step 1: Identify the last date in column A (assuming it's the date column)
         last_date_cell = ws.cell(row=ws.max_row, column=1).value
         if isinstance(last_date_cell, datetime):
             last_date = last_date_cell
         else:
+            # If no valid date is found, set a default start date
             last_date = datetime.now() - timedelta(days=30)  # Assume 30 days ago if no valid date
         next_date = last_date + timedelta(days=1)  # Next date after the last date in the sheet
 
@@ -126,7 +131,7 @@ def modify_all_sheets(workbook):
                 quantities_row = row
 
         if not stocks_row or not quantities_row:
-            st.warning(f"Could not find 'Stocks' or 'Quantities' headers in sheet {sheet_name}. Skipping sheet.")
+            print(f"Could not find 'Stocks' or 'Quantities' headers in sheet {sheet_name}. Skipping sheet.")
             continue
 
         stocks = {}
@@ -144,15 +149,13 @@ def modify_all_sheets(workbook):
         next_date_str = next_date.strftime('%Y-%m-%d')
 
         all_prices = {}
-        closing_dates = None  # Initialize closing_dates variable
-
         for stock_symbol in stocks.keys():
             ticker = yf.Ticker(stock_symbol)
 
             try:
                 hist = ticker.history(start=next_date_str, end=today_date, interval="1d", auto_adjust=False)
                 if hist.empty:
-                    st.warning(f"No data found for {stock_symbol}. Skipping.")
+                    print(f"No data found for {stock_symbol}. Skipping.")
                     continue
 
                 closing_prices = hist['Close'].tolist()
@@ -160,13 +163,8 @@ def modify_all_sheets(workbook):
                 all_prices[stock_symbol] = (closing_dates, closing_prices)
 
             except Exception as e:
-                st.error(f"Error fetching data for {stock_symbol}: {e}")
+                print(f"Error fetching data for {stock_symbol}: {e}")
                 continue
-
-        # Check if we have valid data
-        if closing_dates is None:
-            st.error(f"No valid data found for any stocks in sheet {sheet_name}. Skipping.")
-            continue
 
         # Step 6: Insert the fetched data and perform calculations
         current_row = ws.max_row + 1
@@ -197,7 +195,20 @@ def modify_all_sheets(workbook):
             nav_values.append(nav)
             ws.cell(row=current_row + i, column=10, value=nav)  # Insert NAV
 
+   
     return workbook
+       
+       
+               
+        # Check if we have valid data
+        if closing_dates is None:
+            st.error(f"No valid data found for any stocks in sheet {sheet_name}. Skipping.")
+            continue
+
+        # Step 6: Insert the fetched data and perform calculations
+        current_row = ws.max_row + 1
+
+        basket_value
 
 
 def save_excel_to_memory(workbook):
