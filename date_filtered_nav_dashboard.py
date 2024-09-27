@@ -32,9 +32,8 @@ def load_nav_data(file_path):
             st.error("NAV or Date column not found in the selected workbook.")
             return pd.DataFrame()
 
-        # Convert Date column to datetime format (ignore time)
-        data['Date'] = pd.to_datetime(data['Date'], errors='coerce').dt.date  # Strip the time part
-
+        # Convert Date column to datetime format
+        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
         data = data.sort_values(by='Date')  # Sort data by Date
         
         # Drop rows with missing Date or NAV
