@@ -176,7 +176,7 @@ def modify_all_sheets(workbook):
             nav_values.append(nav)
             ws.cell(row=current_row + i, column=10, value=nav)
 
-    print(f"Modifications applied to all sheets successfully.")
+    # Return the modified workbook so it can be saved later
     return workbook
 
 # Streamlit app layout and logic
