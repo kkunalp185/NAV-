@@ -63,6 +63,15 @@ def filter_data_by_date(data, date_range):
     else:  # Max
         return data
 
+# Function to recalculate NAV starting from 100
+def recalculate_nav(filtered_data):
+    # Start from an initial NAV value of 100
+    initial_nav = filtered_data['NAV'].iloc[0]
+    
+    # Scale NAV values starting from 100
+    filtered_data['Rebased NAV'] = (filtered_data['NAV'] / initial_nav) * 100
+    return filtered_data
+
 # Function to modify the workbook (add new data)
 def modify_workbook(file_path):
     try:
@@ -202,8 +211,22 @@ def main():
         if not nav_data.empty:
             st.success("Data loaded successfully!")
 
+            # Remove column B ('Stocks') if it exists
+            nav_data = nav_data.drop(columns=['Stocks'], errors='ignore')
+
+            # Rename column 'Unnamed: 8' to 'Returns' if it exists
+            if 'Unnamed: 8' in nav_data.columns:
+                nav_data = nav_data.rename(columns={'Unnamed: 8': 'Returns'})
+
             # Filter the data based on selected date range
             filtered_data = filter_data_by_date(nav_data, selected_range)
+
+            # Recalculate NAV to start from 100 for ranges other than '1 Day' and '5 Days'
+            if selected_range not in ["1 Day", "5 Days"]:
+                filtered_data = recalculate_nav(filtered_data)
+                chart_column = 'Rebased NAV'
+            else:
+                chart_column = 'NAV'
 
             # Display the filtered data as a table
             st.write("### Data Table")
@@ -213,8 +236,8 @@ def main():
             st.write("### NAV Chart")
             line_chart = alt.Chart(filtered_data).mark_line().encode(
                 x='Date:T',
-                y=alt.Y('NAV:Q', scale=alt.Scale(domain=[80, filtered_data['NAV'].max()])),
-                tooltip=['Date:T', 'NAV:Q']
+                y=alt.Y(f'{chart_column}:Q', scale=alt.Scale(domain=[80, filtered_data[chart_column].max()])),
+                tooltip=['Date:T', f'{chart_column}:Q']
             ).properties(
                 width=700,
                 height=400
