@@ -1,0 +1,37 @@
+name: Auto-Commit Changes
+
+on:
+  push:
+    branches:
+      - master  # Run the workflow on every push to the master branch
+
+jobs:
+  update-files:
+    runs-on: ubuntu-latest  # Run the job on an Ubuntu machine
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2  # Checks out the repository code
+
+      - name: Set up Python
+        uses: actions/setup-python@v2  # Sets up Python environment
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt  # Install the dependencies
+
+      - name: Run Python Script
+        run: |
+          python your_script.py  # Run your Python script to modify files
+
+      - name: Commit and Push Changes
+        run: |
+          git config user.name "GitHub Actions"  # Configure Git user name
+          git config user.email "actions@github.com"  # Configure Git user email
+          git add .  # Add changes to the staging area
+          git commit -m "Auto-update files" || echo "No changes to commit"  # Commit changes
+          git push origin master  # Push changes back to the master branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Use GitHub's built-in token for authentication
