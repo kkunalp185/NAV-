@@ -201,15 +201,14 @@ def main():
     if selected_workbook:
         # Trigger modification when the user selects a workbook or a date range
         file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
-        st.write(f"Modifying and updating data for {selected_workbook}...")
+       
         modify_workbook(file_path)  # Automatically modify the selected workbook
 
         # Load modified NAV data from the selected workbook
         nav_data = load_nav_data(file_path)
 
         # Check if NAV data is successfully loaded
-        if not nav_data.empty:
-            st.success("Data loaded successfully!")
+       
 
             # Remove column B ('Stocks') if it exists
             nav_data = nav_data.drop(columns=['Stocks'], errors='ignore')
@@ -220,7 +219,7 @@ def main():
 
             # Filter the data based on selected date range
             filtered_data = filter_data_by_date(nav_data, selected_range)
-
+            filtered_data['Date'] = filtered_data['Date'].dt.date
             # Recalculate NAV to start from 100 for ranges other than '1 Day' and '5 Days'
             if selected_range not in ["1 Day", "5 Days"]:
                 filtered_data = recalculate_nav(filtered_data)
@@ -233,7 +232,7 @@ def main():
             st.dataframe(filtered_data)
 
             # Generate and display the Altair line chart
-            st.write("### NAV Chart")
+           
             line_chart = alt.Chart(filtered_data).mark_line().encode(
                 x='Date:T',
                 y=alt.Y(f'{chart_column}:Q', scale=alt.Scale(domain=[80, filtered_data[chart_column].max()])),
@@ -244,6 +243,8 @@ def main():
             )
 
             st.altair_chart(line_chart, use_container_width=True)
+            st.write("### NAV Chart")
+
 
 if __name__ == "__main__":
     main()
