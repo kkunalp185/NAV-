@@ -61,7 +61,7 @@ def recalculate_nav(filtered_data):
     return filtered_data
 
 # Function to modify all sheets in the Excel file
-def modify_all_sheets(workbook):
+def modify_all_sheets(workbook, file_path):
     for sheet_name in workbook.sheetnames:
         ws = workbook[sheet_name]
         last_date_cell = ws.cell(row=ws.max_row, column=1).value
