@@ -199,9 +199,9 @@ return workbook
        
 
         # Step 6: Insert the fetched data and perform calculations
-        current_row = ws.max_row + 1
+ current_row = ws.max_row + 1
 
-        basket_value
+ basket_value
 
 
 def save_excel_to_memory(workbook):
