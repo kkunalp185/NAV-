@@ -76,10 +76,6 @@ def modify_all_sheets(workbook):
     for sheet_name in workbook.sheetnames:
         ws = workbook[sheet_name]
         st.write(f"Modifying sheet: {sheet_name}")
-def modify_all_sheets(workbook):
-    for sheet_name in workbook.sheetnames:
-        ws = workbook[sheet_name]
-        print(f"Modifying sheet: {sheet_name}")
 
         # Step 1: Identify the last date in column A (assuming it's the date column)
         last_date_cell = ws.cell(row=ws.max_row, column=1).value
