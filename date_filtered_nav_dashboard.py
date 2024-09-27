@@ -9,7 +9,6 @@ from datetime import datetime
 from openpyxl.styles import Font
 import yfinance as yf
 
-
 # Define the directory where the workbooks are stored (relative or absolute path)
 WORKBOOK_DIR = "NAV"  # Update this path to where your Excel workbooks are stored
 
@@ -170,14 +169,7 @@ def modify_all_sheets(workbook):
 
     print(f"Modifications applied to all sheets successfully.")
     return workbook
-# Function to recalculate NAV starting from 100
-def recalculate_nav(filtered_data):
-    # Start from an initial NAV value of 100
-    initial_nav = filtered_data['NAV'].iloc[0]
-    
-    # Scale NAV values starting from 100
-    filtered_data['Rebased NAV'] = (filtered_data['NAV'] / initial_nav) * 100
-    return filtered_data
+
 # Streamlit app layout and logic
 def main():
     st.title("NAV Data Dashboard")
@@ -212,42 +204,23 @@ def main():
 
             # Filter the data based on selected date range
             filtered_data = filter_data_by_date(nav_data, selected_range)
-# Recalculate NAV to start from 100 for ranges other than '1 Day' and '5 Days'
-            if selected_range not in ["1 Day", "5 Days"]:
-                filtered_data = recalculate_nav(filtered_data)
-                chart_column = 'Rebased NAV'
-            else:
-                chart_column = 'NAV'
 
-            # Display the filtered data as a line chart using Altair, with y-axis starting from 80
+            # Display the filtered data as a table
+            st.write("### Data Table")
+            st.dataframe(filtered_data)
+
+            # Generate and display the Altair line chart
+            st.write("### NAV Chart")
             line_chart = alt.Chart(filtered_data).mark_line().encode(
                 x='Date:T',
-                y=alt.Y(f'{chart_column}:Q', scale=alt.Scale(domain=[80, filtered_data[chart_column].max()])),
-                tooltip=['Date:T', f'{chart_column}:Q']
+                y=alt.Y('NAV:Q', scale=alt.Scale(domain=[80, filtered_data['NAV'].max()])),
+                tooltip=['Date:T', 'NAV:Q']
             ).properties(
                 width=700,
                 height=400
             )
 
             st.altair_chart(line_chart, use_container_width=True)
-
-            # Rename column I as "Returns"
-            if 'Unnamed: 8' in filtered_data.columns:
-                filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
-
-            # Remove column B and rename column I as "Returns"
-            filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')  # Assuming 'Stocks' is in column B
-            
-            # Display the filtered data as a table (showing columns A-J, except B)
-            st.write("### Data Table")
-            st.dataframe(filtered_data.reset_index(drop=True))  # Reset index to remove the serial number
-
-        else:
-            st.error("Failed to load data. Please check the workbook format.")
-
-            # Display the filtered data as a table
-            st.write("### Data Table")
-            st.dataframe(filtered_data)
 
 if __name__ == "__main__":
     main()
