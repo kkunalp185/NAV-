@@ -83,7 +83,7 @@ def modify_workbook(file_path):
         
         # Save the modified workbook back to the same file
         modified_workbook.save(file_path)
-        
+        st.success(f"Workbook {os.path.basename(file_path)} modified successfully!")
     
     except Exception as e:
         st.error(f"Error modifying workbook: {e}")
@@ -201,7 +201,7 @@ def main():
     if selected_workbook:
         # Trigger modification when the user selects a workbook or a date range
         file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
-        
+        st.write(f"Modifying and updating data for {selected_workbook}...")
         modify_workbook(file_path)  # Automatically modify the selected workbook
 
         # Load modified NAV data from the selected workbook
@@ -209,7 +209,7 @@ def main():
 
         # Check if NAV data is successfully loaded
         if not nav_data.empty:
-           
+            st.success("Data loaded successfully!")
 
             # Remove column B ('Stocks') if it exists
             nav_data = nav_data.drop(columns=['Stocks'], errors='ignore')
@@ -220,7 +220,7 @@ def main():
 
             # Filter the data based on selected date range
             filtered_data = filter_data_by_date(nav_data, selected_range)
-            filtered_data['Date'] = filtered_data['Date'].dt.date
+
             # Recalculate NAV to start from 100 for ranges other than '1 Day' and '5 Days'
             if selected_range not in ["1 Day", "5 Days"]:
                 filtered_data = recalculate_nav(filtered_data)
@@ -229,7 +229,8 @@ def main():
                 chart_column = 'NAV'
 
             # Display the filtered data as a table
-            
+            st.write("### Data Table")
+            st.dataframe(filtered_data)
 
             # Generate and display the Altair line chart
             st.write("### NAV Chart")
@@ -243,7 +244,6 @@ def main():
             )
 
             st.altair_chart(line_chart, use_container_width=True)
-            st.write("### Data Table")
-            st.dataframe(filtered_data)
+
 if __name__ == "__main__":
     main()
