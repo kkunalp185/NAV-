@@ -20,7 +20,7 @@ def list_workbooks(directory):
     except FileNotFoundError:
         st.error("Directory not found. Please ensure the specified directory exists.")
         return []
-
+@st.experimental_memo
 # Function to load NAV data from the selected workbook
 def load_nav_data(file_path):
     try:
@@ -32,17 +32,22 @@ def load_nav_data(file_path):
             st.error("NAV or Date column not found in the selected workbook.")
             return pd.DataFrame()
 
-        # Convert Date column to datetime format
-        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+        # Convert Date column to datetime format (ignore time)
+        data['Date'] = pd.to_datetime(data['Date'], errors='coerce').dt.date  # Strip the time part
+
         data = data.sort_values(by='Date')  # Sort data by Date
         
         # Drop rows with missing Date or NAV
         data = data.dropna(subset=['Date', 'NAV'])
 
+        # Remove duplicate entries based on the 'Date' column
+        data = data.drop_duplicates(subset='Date', keep='first')
+
         return data
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
+
 
 # Function to filter data based on the selected date range
 def filter_data_by_date(data, date_range):
