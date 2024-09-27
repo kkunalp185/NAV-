@@ -201,10 +201,25 @@ def modify_excel_file_locally(filename):
         print(f"Modifications applied to all sheets successfully.")
         workbook.save(file_path)  # Save the updated workbook
         st.success(f"{filename} has been modified and saved locally.")
-
+        git_add_commit_push(filename)
     except Exception as e:
         st.error(f"Error modifying {filename}: {e}")
+# Function to execute git commands to add, commit, and push changes
+def git_add_commit_push(filename):
+    try:
+        # Git add
+        subprocess.run(["git", "add", f"{WORKBOOK_DIR}/{filename}"], check=True)
 
+        # Git commit with a message
+        commit_message = f"Updated {filename} with new data"
+        subprocess.run(["git", "commit", "-m", commit_message], check=True)
+
+        # Git push to the remote repository
+        subprocess.run(["git", "push"], check=True)
+
+        st.success(f"Changes to {filename} have been committed and pushed to GitHub.")
+    except subprocess.CalledProcessError as e:
+        st.error(f"Error during git operation: {e}")
 # Streamlit app layout and logic
 def main():
     st.title("NAV Data Dashboard")
