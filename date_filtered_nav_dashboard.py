@@ -227,7 +227,7 @@ def main():
     # Trigger modification of the Excel file as soon as a selection is made
     if selected_workbook and selected_range:
         modify_excel_file_locally(selected_workbook)
-        st.experimental_rerun()  # Refresh the app after modification
+        
 
     if selected_workbook:
         st.write(f"### Displaying data from {selected_workbook}")
