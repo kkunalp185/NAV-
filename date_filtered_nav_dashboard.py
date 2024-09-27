@@ -76,7 +76,7 @@ def modify_all_sheets(workbook):
     for sheet_name in workbook.sheetnames:
         ws = workbook[sheet_name]
         st.write(f"Modifying sheet: {sheet_name}")
-
+   
         # Step 1: Identify the last date in column A (assuming it's the date column)
         last_date_cell = ws.cell(row=ws.max_row, column=1).value
         if isinstance(last_date_cell, datetime):
@@ -191,17 +191,16 @@ def modify_all_sheets(workbook):
             nav_values.append(nav)
             ws.cell(row=current_row + i, column=10, value=nav)  # Insert NAV
 
-   
-return workbook
-       
+    print(f"Modifications applied to all sheets successfully.")
+    return workbook
        
                
        
 
         # Step 6: Insert the fetched data and perform calculations
- current_row = ws.max_row + 1
+        current_row = ws.max_row + 1
 
- basket_value
+        basket_value
 
 
 def save_excel_to_memory(workbook):
