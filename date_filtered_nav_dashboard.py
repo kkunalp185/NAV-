@@ -226,7 +226,9 @@ def git_add_commit_push(filename):
         # Git push to the remote repository
         subprocess.run(["git", "push"], check=True)
 
-       
+    except subprocess.CalledProcessError as e:
+        print(f"Error during git operation: {e}")
+
    
         
 
