@@ -302,7 +302,7 @@ def main():
         else:
             st.error("Failed to load data. Please check the workbook format.")
 
-st.rerun()
+
 
 if __name__ == "__main__":
     main()
