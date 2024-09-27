@@ -40,8 +40,5 @@ tornado==6.4.1
 typing_extensions==4.12.2
 tzdata==2024.2
 urllib3==2.2.3
-streamlit==1.25.0
-pandas==2.1.1
-openpyxl==3.1.2
 yfinance==0.2.30
-altair==5.1.1
+
