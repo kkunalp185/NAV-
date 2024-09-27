@@ -2,13 +2,14 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import timedelta
-import altair as alt  # For more advanced charting
+import altair as alt
 import openpyxl
 from datetime import datetime, timedelta
 import yfinance as yf
+import subprocess  # To run git commands
 
-# Define the directory where the workbooks are stored
-WORKBOOK_DIR = "NAV"  # Update this path to where your Excel workbooks are stored
+# Define the directory where the workbooks are stored (this is in the same repo)
+WORKBOOK_DIR = "NAV"  # Folder where the Excel workbooks are stored
 
 # Function to list available Excel files in the specified directory
 def list_workbooks(directory):
@@ -70,16 +71,16 @@ def recalculate_nav(filtered_data):
     filtered_data['Rebased NAV'] = (filtered_data['NAV'] / initial_nav) * 100
     return filtered_data
 
-# Function to modify the Excel file locally in the NAV folder
-def modify_excel_file_locally(filename):
-    # Define the full path to the Excel file in the NAV folder
+# Function to modify the Excel file locally and automatically push changes to GitHub
+def modify_and_push_to_github(filename):
+    # Path to the Excel file
     file_path = os.path.join(WORKBOOK_DIR, filename)
     
     try:
         # Load the Excel workbook using openpyxl
         workbook = openpyxl.load_workbook(file_path)
 
-        # Modify all sheets in the workbook
+        # Modify all sheets in the workbook (you can insert your logic here)
         for sheet_name in workbook.sheetnames:
             ws = workbook[sheet_name]
             print(f"Modifying sheet: {sheet_name}")
@@ -198,12 +199,16 @@ def modify_excel_file_locally(filename):
                 nav_values.append(nav)
                 ws.cell(row=current_row + i, column=10, value=nav)  # Insert NAV
 
-        print(f"Modifications applied to all sheets successfully.")
-        workbook.save(file_path)  # Save the updated workbook
+        # Save the modified Excel file locally
+        workbook.save(file_path)
         st.success(f"{filename} has been modified and saved locally.")
+
+        # Automatically push changes to GitHub
         git_add_commit_push(filename)
+
     except Exception as e:
         st.error(f"Error modifying {filename}: {e}")
+
 # Function to execute git commands to add, commit, and push changes
 def git_add_commit_push(filename):
     try:
@@ -220,6 +225,7 @@ def git_add_commit_push(filename):
         st.success(f"Changes to {filename} have been committed and pushed to GitHub.")
     except subprocess.CalledProcessError as e:
         st.error(f"Error during git operation: {e}")
+
 # Streamlit app layout and logic
 def main():
     st.title("NAV Data Dashboard")
@@ -241,8 +247,8 @@ def main():
 
     # Trigger modification of the Excel file as soon as a selection is made
     if selected_workbook and selected_range:
-        modify_excel_file_locally(selected_workbook)
-        
+        modify_and_push_to_github(selected_workbook)
+        st.experimental_rerun()  # Refresh the app after modification
 
     if selected_workbook:
         st.write(f"### Displaying data from {selected_workbook}")
