@@ -192,14 +192,11 @@ def modify_all_sheets(workbook):
             ws.cell(row=current_row + i, column=10, value=nav)  # Insert NAV
 
    
-    return workbook
+         return workbook
        
        
                
-        # Check if we have valid data
-        if closing_dates is None:
-            st.error(f"No valid data found for any stocks in sheet {sheet_name}. Skipping.")
-            continue
+       
 
         # Step 6: Insert the fetched data and perform calculations
         current_row = ws.max_row + 1
