@@ -219,7 +219,7 @@ def git_add_commit_push(workbooks):
         subprocess.run(["git", "commit", "-m", commit_message], check=True)
 
         # Use a GitHub Personal Access Token (PAT) to authenticate during the push
-        remote_url = "https://anuj1963:<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>@github.com/your-username/NAV-.git"
+        remote_url = "https://anuj1963:<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>@github.com/anuj1963/NAV-.git"
         subprocess.run(["git", "remote", "set-url", "origin", remote_url], check=True)
 
         # Git push to the remote repository
