@@ -68,12 +68,13 @@ def filter_data_by_date(data, date_range):
 
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
+    # Make a copy of filtered_data to avoid SettingWithCopyWarning
+    filtered_data_copy = filtered_data.copy()
     # Start from an initial NAV value of 100
-    initial_nav = filtered_data['NAV'].iloc[0]
-    
+    initial_nav = filtered_data_copy['NAV'].iloc[0]
     # Scale NAV values starting from 100
-    filtered_data['Rebased NAV'] = (filtered_data['NAV'] / initial_nav) * 100
-    return filtered_data
+    filtered_data_copy['Rebased NAV'] = (filtered_data_copy['NAV'] / initial_nav) * 100
+    return filtered_data_copy
 
 # Function to fetch stock data with retry logic
 def fetch_stock_data_with_retry(stock_symbol, start, end, retries=3, delay=5):
@@ -217,8 +218,12 @@ def git_add_commit_push(workbooks):
         commit_message = f"Updated all workbooks with new data"
         subprocess.run(["git", "commit", "-m", commit_message], check=True)
 
+        # Use a GitHub Personal Access Token (PAT) to authenticate during the push
+        remote_url = "https://anuj1963:<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>@github.com/your-username/your-repository.git"
+        subprocess.run(["git", "remote", "set-url", "origin", remote_url], check=True)
+
         # Git push to the remote repository
-        subprocess.run(["git", "push"], check=True)
+        subprocess.run(["git", "push", "origin", "master"], check=True)
         print("All changes have been successfully pushed to GitHub.")
 
     except subprocess.CalledProcessError as e:
@@ -267,13 +272,12 @@ def main():
             # Filter the data based on selected date range
             filtered_data = filter_data_by_date(nav_data, selected_range)
 
-            # Remove the time from the Date column for cleaner display
-            filtered_data['Date'] = filtered_data['Date'].dt.date
+            # Remove the time from the Date column for cleaner display (in place)
+            filtered_data.loc[:, 'Date'] = filtered_data['Date'].dt.date
 
-            # Recalculate NAV to start from 100 for ranges other than '1 Day' and '5 Days'
+            # Recalculate NAV to start from 100 for ranges other than '1 Day' and 'Max'
             if selected_range not in ["1 Day", "Max"]:
                 filtered_data = recalculate_nav(filtered_data)
-                filtered_data.loc[:, 'Rebased NAV'] = (filtered_data['NAV'] / filtered_data['NAV'].iloc[0]) * 100
                 chart_column = 'Rebased NAV'
             else:
                 chart_column = 'NAV'
@@ -292,9 +296,7 @@ def main():
 
             # Display the filtered data as a table (showing columns A-J, except B)
             st.write("### Data Table")
-            st.dataframe(filtered_data.reset_index(drop=True))  #
-            # Reset index to remove the serial number
-            st.dataframe(filtered_data.reset_index(drop=True)) 
+            st.dataframe(filtered_data.reset_index(drop=True))
 
         else:
             st.error("Failed to load data. Please check the workbook format.")
