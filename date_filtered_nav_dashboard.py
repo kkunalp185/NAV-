@@ -88,8 +88,8 @@ def fetch_stock_data_with_retry(stock_symbol, start, end, retries=3, delay=5):
         time.sleep(delay)
     return pd.DataFrame()  # Return empty DataFrame if all retries fail
 
-# Function to modify the Excel file locally and automatically push changes to GitHub
-def modify_and_push_to_github(filename):
+# Function to modify the Excel file locally
+def modify_workbook(filename):
     # Path to the Excel file
     file_path = os.path.join(WORKBOOK_DIR, filename)
     
@@ -198,20 +198,17 @@ def modify_and_push_to_github(filename):
         # Save the modified Excel file locally
         workbook.save(file_path)
 
-        # Automatically push changes to GitHub
-        git_add_commit_push(filename)
-
     except Exception as e:
         st.error(f"Error modifying {filename}: {e}")
 
 # Function to execute git commands to add, commit, and push changes
-def git_add_commit_push(filename):
+def git_add_commit_push():
     try:
-        # Git add
-        subprocess.run(["git", "add", f"{WORKBOOK_DIR}/{filename}"], check=True)
+        # Git add all files in the directory
+        subprocess.run(["git", "add", WORKBOOK_DIR], check=True)
 
         # Git commit with a message
-        commit_message = f"Updated {filename} with new data"
+        commit_message = f"Updated all workbooks with new data"
         subprocess.run(["git", "commit", "-m", commit_message], check=True)
 
         # Git push to the remote repository
@@ -224,14 +221,18 @@ def git_add_commit_push(filename):
 def modify_all_workbooks():
     workbooks = list_workbooks(WORKBOOK_DIR)
     for workbook in workbooks:
-        modify_and_push_to_github(workbook)
+        modify_workbook(workbook)
+
+    # After modifying all workbooks, push changes to GitHub
+    git_add_commit_push()
 
 # Streamlit app layout and logic
 def main():
     st.title("NAV Data Dashboard")
 
     # Modify and push changes to all Excel files
-    st.button("Update All Workbooks", on_click=modify_all_workbooks)
+    if st.button("Update All Workbooks"):
+        modify_all_workbooks()
 
     # List available workbooks in the directory
     workbooks = list_workbooks(WORKBOOK_DIR)
