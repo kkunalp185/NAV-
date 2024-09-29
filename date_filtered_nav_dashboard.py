@@ -207,7 +207,7 @@ def git_add_commit_push(workbooks):
     try:
         # Configure Git username and email
         subprocess.run(["git", "config", "--global", "user.email", "anujagrawal756@gmail.com"], check=True)
-        subprocess.run(["git", "config", "--global", "user.name", "Anuj"], check=True)
+        subprocess.run(["git", "config", "--global", "user.name", "anuj1963"], check=True)
 
         # Add each modified workbook individually to ensure all changes are tracked
         for workbook in workbooks:
