@@ -7,7 +7,6 @@ import openpyxl
 from datetime import datetime, timedelta
 import yfinance as yf
 import subprocess  # To run git commands
-import time
 
 # Define the directory where the workbooks are stored (this is in the same repo)
 WORKBOOK_DIR = "NAV"  # Folder where the Excel workbooks are stored
@@ -48,6 +47,7 @@ def load_nav_data(file_path):
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
 
+
 # Function to filter data based on the selected date range
 def filter_data_by_date(data, date_range):
     if date_range == "1 Day":
@@ -68,29 +68,15 @@ def filter_data_by_date(data, date_range):
 
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
-    # Make a copy of filtered_data to avoid SettingWithCopyWarning
-    filtered_data_copy = filtered_data.copy()
     # Start from an initial NAV value of 100
-    initial_nav = filtered_data_copy['NAV'].iloc[0]
+    initial_nav = filtered_data['NAV'].iloc[0]
+    
     # Scale NAV values starting from 100
-    filtered_data_copy['Rebased NAV'] = (filtered_data_copy['NAV'] / initial_nav) * 100
-    return filtered_data_copy
+    filtered_data['Rebased NAV'] = (filtered_data['NAV'] / initial_nav) * 100
+    return filtered_data
 
-# Function to fetch stock data with retry logic
-def fetch_stock_data_with_retry(stock_symbol, start, end, retries=3, delay=5):
-    for i in range(retries):
-        try:
-            ticker = yf.Ticker(stock_symbol)
-            hist = ticker.history(start=start, end=end, interval="1d", auto_adjust=False)
-            if not hist.empty:
-                return hist
-        except Exception as e:
-            print(f"Attempt {i+1} failed for {stock_symbol}. Error: {e}")
-        time.sleep(delay)
-    return pd.DataFrame()  # Return empty DataFrame if all retries fail
-
-# Function to modify the Excel file locally
-def modify_workbook(filename):
+# Function to modify the Excel file locally and automatically push changes to GitHub
+def modify_and_push_to_github(filename):
     # Path to the Excel file
     file_path = os.path.join(WORKBOOK_DIR, filename)
     
@@ -128,7 +114,20 @@ def modify_workbook(filename):
                 last_non_zero_nav = 100  # Default NAV value
                 last_nav_row = 3
 
-            # Step 3: Identify existing stock symbols and quantities in columns C to G
+            # Step 3: Identify the last non-zero SUMPRODUCT in column H (Basket Value)
+            sumproduct_column_index = 8  # Column H for SUMPRODUCT
+            last_sumproduct_value = None
+
+            for row in range(ws.max_row, 2, -1):
+                sumproduct_value = ws.cell(row=row, column=sumproduct_column_index).value
+                if isinstance(sumproduct_value, (int, float)) and sumproduct_value != 0:
+                    last_sumproduct_value = sumproduct_value
+                    break
+
+            if last_sumproduct_value is None:
+                last_sumproduct_value = 0
+
+            # Step 4: Identify existing stock symbols and quantities in columns C to G
             stocks_row = None
             quantities_row = None
 
@@ -153,21 +152,29 @@ def modify_workbook(filename):
                     stocks[stock_symbol] = stock_symbol  # Use stock symbol as stock name
                     quantities.append(quantity)
 
-            # Step 4: Fetch historical stock data from the next date after the last date in the sheet until today
+            # Step 5: Fetch historical stock data from the next date after the last date in the sheet until today
             today_date = datetime.now().strftime('%Y-%m-%d')
             next_date_str = next_date.strftime('%Y-%m-%d')
 
             all_prices = {}
-            closing_dates = []
-
             for stock_symbol in stocks.keys():
-                hist = fetch_stock_data_with_retry(stock_symbol, next_date_str, today_date)
-                if not hist.empty:
+                ticker = yf.Ticker(stock_symbol)
+
+                try:
+                    hist = ticker.history(start=next_date_str, end=today_date, interval="1d", auto_adjust=False)
+                    if hist.empty:
+                        print(f"No data found for {stock_symbol}. Skipping.")
+                        continue
+
                     closing_prices = hist['Close'].tolist()
                     closing_dates = hist.index.strftime('%Y-%m-%d').tolist()
                     all_prices[stock_symbol] = (closing_dates, closing_prices)
 
-            # Step 5: Insert the fetched data and perform calculations
+                except Exception as e:
+                    print(f"Error fetching data for {stock_symbol}: {e}")
+                    continue
+
+            # Step 6: Insert the fetched data and perform calculations
             current_row = ws.max_row + 1
 
             basket_values = []
@@ -178,7 +185,7 @@ def modify_workbook(filename):
                 ws.cell(row=current_row + i, column=1, value=closing_dates[i])  # Insert date
 
                 basket_value = 0
-                for j, stock_symbol in enumerate(stocks.keys()):
+                for j, stock_symbol in enumerate(stocks.keys()):  # Use stock_symbol and enumerate without start=3
                     price = all_prices[stock_symbol][1][i] if i < len(all_prices[stock_symbol][1]) else 0
                     quantity = quantities[j]
                     basket_value += price * quantity
@@ -198,51 +205,36 @@ def modify_workbook(filename):
 
         # Save the modified Excel file locally
         workbook.save(file_path)
-        print(f"Workbook {filename} has been successfully modified and saved.")
+        
+
+        # Automatically push changes to GitHub
+        git_add_commit_push(filename)
 
     except Exception as e:
         st.error(f"Error modifying {filename}: {e}")
 
 # Function to execute git commands to add, commit, and push changes
-def git_add_commit_push(workbooks):
+def git_add_commit_push(filename):
     try:
-        # Configure Git username and email
-        subprocess.run(["git", "config", "--global", "user.email", "anujagrawal756@gmail.com"], check=True)
-        subprocess.run(["git", "config", "--global", "user.name", "anuj1963"], check=True)
-
-        # Add each modified workbook individually to ensure all changes are tracked
-        for workbook in workbooks:
-            subprocess.run(["git", "add", os.path.join(WORKBOOK_DIR, workbook)], check=True)
+        # Git add
+        subprocess.run(["git", "add", f"{WORKBOOK_DIR}/{filename}"], check=True)
 
         # Git commit with a message
-        commit_message = f"Updated all workbooks with new data"
+        commit_message = f"Updated {filename} with new data"
         subprocess.run(["git", "commit", "-m", commit_message], check=True)
 
-        # Use a Personal Access Token (PAT) to authenticate during the push
-        remote_url = "https://<anuj1963>:<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>@github.com/anuj1963/NAV-.git"
-        subprocess.run(["git", "remote", "set-url", "origin", remote_url], check=True)
-
         # Git push to the remote repository
-        subprocess.run(["git", "push", "origin", "master"], check=True)
-        print("All changes have been successfully pushed to GitHub.")
+        subprocess.run(["git", "push"], check=True)
 
+    except subprocess.CalledProcessError as e:
+        print(f"Error during git operation: {e}")
 
-# Function to modify and push changes to all Excel files in the directory
-def modify_all_workbooks():
-    workbooks = list_workbooks(WORKBOOK_DIR)
-    for workbook in workbooks:
-        modify_workbook(workbook)
-
-    # After modifying all workbooks, push changes to GitHub
-    git_add_commit_push(workbooks)
+   
+        
 
 # Streamlit app layout and logic
 def main():
     st.title("NAV Data Dashboard")
-
-    # Modify and push changes to all Excel files
-    if st.button("Update All Workbooks"):
-        modify_all_workbooks()
 
     # List available workbooks in the directory
     workbooks = list_workbooks(WORKBOOK_DIR)
@@ -259,6 +251,11 @@ def main():
     date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
     selected_range = st.selectbox("Select Date Range", date_ranges)
 
+    # Trigger modification of the Excel file as soon as a selection is made
+    if selected_workbook and selected_range:
+        modify_and_push_to_github(selected_workbook)
+        
+
     if selected_workbook:
         st.write(f"### Displaying data from {selected_workbook}")
 
@@ -267,13 +264,15 @@ def main():
         
         # Check if NAV data is successfully loaded
         if not nav_data.empty:
+           
+
             # Filter the data based on selected date range
             filtered_data = filter_data_by_date(nav_data, selected_range)
 
-            # Remove the time from the Date column for cleaner display (in place)
-            filtered_data.loc[:, 'Date'] = filtered_data['Date'].dt.date
+            # Remove the time from the Date column for cleaner display
+            filtered_data['Date'] = filtered_data['Date'].dt.date
 
-            # Recalculate NAV to start from 100 for ranges other than '1 Day' and 'Max'
+            # Recalculate NAV to start from 100 for ranges other than '1 Day' and '5 Days'
             if selected_range not in ["1 Day", "Max"]:
                 filtered_data = recalculate_nav(filtered_data)
                 chart_column = 'Rebased NAV'
@@ -291,13 +290,19 @@ def main():
             )
 
             st.altair_chart(line_chart, use_container_width=True)
+            if 'Unnamed: 8' in filtered_data.columns:
+                filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
 
+            # Remove column B and rename column I as "Returns"
+            filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')
             # Display the filtered data as a table (showing columns A-J, except B)
             st.write("### Data Table")
-            st.dataframe(filtered_data.reset_index(drop=True))
+            st.dataframe(filtered_data.reset_index(drop=True))  # Reset index to remove the serial number
 
         else:
             st.error("Failed to load data. Please check the workbook format.")
+
+
 
 if __name__ == "__main__":
     main()
