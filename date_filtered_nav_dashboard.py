@@ -197,37 +197,67 @@ def modify_workbook(filename):
 
 
 
+import subprocess
+
+# Define the directory containing the Excel files
+WORKBOOK_DIR = "NAV"
+
+# Function to execute git commands to add, commit, and push changes
 def git_add_commit_push(modified_files):
-   
+    try:
+        # Set up Git user configuration if not already set
+        subprocess.run(["git", "config", "user.name", "anuj1963"], check=True)
+        subprocess.run(["git", "config", "user.email", "anujagrawal756@gmail.com"], check=True)
 
-# Replace these variables with your actual credentials
-GITHUB_USERNAME = "anuj1963"
-GITHUB_TOKEN = "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"
-REPO_NAME = "NAV-"
+        # Git add each modified file
+        for filename in modified_files:
+            result_add = subprocess.run(["git", "add", f"{WORKBOOK_DIR}/{filename}"], capture_output=True, text=True)
+            if result_add.returncode != 0:
+                print(f"Error during git add for {filename}: {result_add.stderr}")
+                return
 
-try:
-    # Configure user identity
-    subprocess.run(["git", "config", "user.name", "anuj1963"], check=True)
-    subprocess.run(["git", "config", "user.email", "anujagrawal756@gmail.com"], check=True)
+        # Check if there are changes to commit
+        status_result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+        if status_result.returncode != 0:
+            print(f"Error checking git status: {status_result.stderr}")
+            return
 
-    # Set up the remote URL with the token for authentication
-    remote_url = f"https://{GITHUB_USERNAME}:{GITHUB_TOKEN}@github.com/{GITHUB_USERNAME}/{REPO_NAME}.git"
-    subprocess.run(["git", "remote", "set-url", "origin", remote_url], check=True)
+        # If there are no changes, return without committing
+        if not status_result.stdout.strip():
+            print("No changes to commit.")
+            return
 
-    # Pull the latest changes
-    subprocess.run(["git", "pull", "origin", "master"], check=True)
+        # Git commit with a single message for all files
+        commit_message = f"Updated {', '.join(modified_files)} with new data"
+        result_commit = subprocess.run(["git", "commit", "-m", commit_message], capture_output=True, text=True)
+        if result_commit.returncode != 0:
+            print(f"Error during git commit: {result_commit.stderr}")
+            return
 
-    # Add all changes
-    subprocess.run(["git", "add", "."], check=True)
+        # Set up the remote URL with token for authentication (if needed)
+        GITHUB_TOKEN = "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"  # Replace with your actual GitHub token
+        subprocess.run(["git", "remote", "set-url", "origin",
+                        f"https://x-access-token:{GITHUB_TOKEN}@github.com/anuj1963/NAV-.git"], check=True)
 
-    # Commit changes (if any)
-    subprocess.run(["git", "commit", "-m", "Auto-update files"], check=True)
+        # Git push to the remote repository
+        result_push = subprocess.run(["git", "push"], capture_output=True, text=True)
+        if result_push.returncode != 0:
+            print(f"Error during git push: {result_push.stderr}")
 
-    # Push changes to the repository
-    subprocess.run(["git", "push", "origin", "master"], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Subprocess error: {e}")
 
-except subprocess.CalledProcessError as e:
-    print(f"Error during git operation: {e}")
+# Example of calling git_add_commit_push() after modifying workbooks
+def modify_workbooks_and_push():
+    # Here, you would modify the workbooks and collect their names in a list
+    modified_files = ["file1.xlsx", "file2.xlsx"]  # Example list of modified files
+
+    # Call git_add_commit_push to commit and push these changes
+    git_add_commit_push(modified_files)
+
+# Main script logic
+if __name__ == "__main__":
+    modify_workbooks_and_push()
 
 
 
