@@ -15,6 +15,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}  # Use the GitHub token for authentication
+          fetch-depth: 0  # Fetch all history for all branches and tags
 
       # Step 2: Set up Python
       - name: Set up Python
@@ -25,6 +26,7 @@ jobs:
       # Step 3: Install dependencies
       - name: Install Dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt  # Install dependencies from requirements.txt
 
       # Step 4: Run Python script
@@ -34,11 +36,23 @@ jobs:
 
       # Step 5: Commit and push changes
       - name: Commit and Push Changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Use the GitHub token to authenticate the push
         run: |
           git config user.name "anuj1963"  # Set the Git user name
           git config user.email "anujagrawal756@gmail.com"  # Set the Git user email
-          git add .  # Add changes
-          git commit -m "Auto-update files" || echo "No changes to commit"
-          git push origin master  # Push changes back to master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Use the GitHub token to authenticate the push
+
+          # Pull latest changes to avoid conflicts during push
+          git pull origin master
+
+          # Add changes
+          git add .
+
+          # Commit changes, handle the case when there are no changes to commit
+          git diff-index --quiet HEAD || git commit -m "Auto-update files"
+
+          # Set up the remote URL to include the token for authentication
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+
+          # Push changes back to the master branch
+          git push origin master
