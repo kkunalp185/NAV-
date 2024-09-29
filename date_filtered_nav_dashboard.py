@@ -20,7 +20,7 @@ def list_workbooks(directory):
     except FileNotFoundError:
         st.error("Directory not found. Please ensure the specified directory exists.")
         return []
-
+@st.cache
 # Function to load NAV data from the selected workbook
 def load_nav_data(file_path):
     try:
