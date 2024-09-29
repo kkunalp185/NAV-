@@ -197,15 +197,17 @@ def modify_workbook(filename):
 
         # Save the modified Excel file locally
         workbook.save(file_path)
+        print(f"Workbook {filename} has been successfully modified and saved.")
 
     except Exception as e:
         st.error(f"Error modifying {filename}: {e}")
 
 # Function to execute git commands to add, commit, and push changes
-def git_add_commit_push():
+def git_add_commit_push(workbooks):
     try:
-        # Git add all files in the directory
-        subprocess.run(["git", "add", WORKBOOK_DIR], check=True)
+        # Add each modified workbook individually to ensure all changes are tracked
+        for workbook in workbooks:
+            subprocess.run(["git", "add", os.path.join(WORKBOOK_DIR, workbook)], check=True)
 
         # Git commit with a message
         commit_message = f"Updated all workbooks with new data"
@@ -213,6 +215,7 @@ def git_add_commit_push():
 
         # Git push to the remote repository
         subprocess.run(["git", "push"], check=True)
+        print("All changes have been successfully pushed to GitHub.")
 
     except subprocess.CalledProcessError as e:
         print(f"Error during git operation: {e}")
@@ -224,7 +227,7 @@ def modify_all_workbooks():
         modify_workbook(workbook)
 
     # After modifying all workbooks, push changes to GitHub
-    git_add_commit_push()
+    git_add_commit_push(workbooks)
 
 # Streamlit app layout and logic
 def main():
@@ -284,7 +287,9 @@ def main():
 
             # Display the filtered data as a table (showing columns A-J, except B)
             st.write("### Data Table")
-            st.dataframe(filtered_data.reset_index(drop=True))  # Reset index to remove the serial number
+            st.dataframe(filtered_data.reset_index(drop=True))  #
+            # Reset index to remove the serial number
+            st.dataframe(filtered_data.reset_index(drop=True)) 
 
         else:
             st.error("Failed to load data. Please check the workbook format.")
