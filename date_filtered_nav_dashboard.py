@@ -218,16 +218,14 @@ def git_add_commit_push(workbooks):
         commit_message = f"Updated all workbooks with new data"
         subprocess.run(["git", "commit", "-m", commit_message], check=True)
 
-        # Use a GitHub Personal Access Token (PAT) to authenticate during the push
-        remote_url = "https://anuj1963:<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>@github.com/anuj1963/NAV-.git"
+        # Use a Personal Access Token (PAT) to authenticate during the push
+        remote_url = "https://<anuj1963>:<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>@github.com/anuj1963/your-repository.git"
         subprocess.run(["git", "remote", "set-url", "origin", remote_url], check=True)
 
         # Git push to the remote repository
         subprocess.run(["git", "push", "origin", "master"], check=True)
         print("All changes have been successfully pushed to GitHub.")
 
-    except subprocess.CalledProcessError as e:
-        print(f"Error during git operation: {e}")
 
 # Function to modify and push changes to all Excel files in the directory
 def modify_all_workbooks():
