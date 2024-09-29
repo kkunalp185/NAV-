@@ -193,8 +193,14 @@ def modify_workbook(filename):
         st.error(f"Error modifying {filename}: {e}")
 
 # Function to execute git commands to add, commit, and push changes
+
+
 def git_add_commit_push(modified_files):
     try:
+        # Set up Git user configuration if not already set
+        subprocess.run(["git", "config", "--global", "user.email", "anujagrawal756@gmail.com"], check=True)
+        subprocess.run(["git", "config", "--global", "user.name", "anuj1963"], check=True)
+
         # Git add each modified file
         for filename in modified_files:
             result_add = subprocess.run(["git", "add", f"{WORKBOOK_DIR}/{filename}"], capture_output=True, text=True)
@@ -212,6 +218,23 @@ def git_add_commit_push(modified_files):
         if not status_result.stdout.strip():
             st.warning("No changes to commit.")
             return
+
+        # Git commit with a single message for all files
+        commit_message = f"Updated {', '.join(modified_files)} with new data"
+        result_commit = subprocess.run(["git", "commit", "-m", commit_message], capture_output=True, text=True)
+        if result_commit.returncode != 0:
+            st.error(f"Error during git commit: {result_commit.stderr}")
+            return
+
+        # Git push to the remote repository
+        result_push = subprocess.run(["git", "push"], capture_output=True, text=True)
+        if result_push.returncode != 0:
+            st.error(f"Error during git push: {result_push.stderr}")
+
+    except subprocess.CalledProcessError as e:
+        st.error(f"Subprocess error: {e}")
+
+
 
         # Git commit with a single message for all files
         commit_message = f"Updated {', '.join(modified_files)} with new data"
