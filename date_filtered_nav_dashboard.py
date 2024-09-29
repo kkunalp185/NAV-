@@ -4,7 +4,7 @@ import os
 from datetime import timedelta
 import altair as alt
 import openpyxl
-from datetime import datetime
+from datetime import datetime, timedelta
 import yfinance as yf
 import subprocess  # To run git commands
 
@@ -24,18 +24,29 @@ def list_workbooks(directory):
 # Function to load NAV data from the selected workbook
 def load_nav_data(file_path):
     try:
+        # Read the first 10 columns (A-J) from the Excel file
         data = pd.read_excel(file_path, sheet_name=0, usecols="A:J")  # Load columns A-J
+        
+        # Check if 'Date' and 'NAV' columns exist for validation and charting purposes
         if 'NAV' not in data.columns or 'Date' not in data.columns:
             st.error("NAV or Date column not found in the selected workbook.")
             return pd.DataFrame()
+
+        # Convert Date column to datetime format
         data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-        data = data.sort_values(by='Date')
+        data = data.sort_values(by='Date')  # Sort data by Date
+        
+        # Drop rows with missing Date or NAV
         data = data.dropna(subset=['Date', 'NAV'])
+
+        # Remove duplicate entries based on the 'Date' column
         data = data.drop_duplicates(subset='Date', keep='first')
+
         return data
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
+
 
 # Function to filter data based on the selected date range
 def filter_data_by_date(data, date_range):
@@ -57,36 +68,23 @@ def filter_data_by_date(data, date_range):
 
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
+    # Start from an initial NAV value of 100
     initial_nav = filtered_data['NAV'].iloc[0]
+    
+    # Scale NAV values starting from 100
     filtered_data['Rebased NAV'] = (filtered_data['NAV'] / initial_nav) * 100
     return filtered_data
 
-# Function to modify all Excel files in the directory and push them to GitHub
-def modify_all_workbooks_and_push_to_github():
-    workbooks = list_workbooks(WORKBOOK_DIR)
-    if not workbooks:
-        st.error("No workbooks found to modify.")
-        return
-
-    modified_files = []
-
-    for filename in workbooks:
-        try:
-            modify_workbook(filename)
-            modified_files.append(filename)
-        except Exception as e:
-            st.error(f"Error modifying {filename}: {e}")
-
-    # Push all modified files to GitHub
-    if modified_files:
-        git_add_commit_push(modified_files)
-
-# Function to modify a single Excel workbook
-def modify_workbook(filename):
+# Function to modify the Excel file locally and automatically push changes to GitHub
+def modify_and_push_to_github(filename):
+    # Path to the Excel file
     file_path = os.path.join(WORKBOOK_DIR, filename)
+    
     try:
+        # Load the Excel workbook using openpyxl
         workbook = openpyxl.load_workbook(file_path)
 
+        # Modify all sheets in the workbook (you can insert your logic here)
         for sheet_name in workbook.sheetnames:
             ws = workbook[sheet_name]
             print(f"Modifying sheet: {sheet_name}")
@@ -96,23 +94,40 @@ def modify_workbook(filename):
             if isinstance(last_date_cell, datetime):
                 last_date = last_date_cell
             else:
-                last_date = datetime.now() - timedelta(days=30)
-            next_date = last_date + timedelta(days=1)
+                # If no valid date is found, set a default start date
+                last_date = datetime.now() - timedelta(days=30)  # Assume 30 days ago if no valid date
+            next_date = last_date + timedelta(days=1)  # Next date after the last date in the sheet
 
             # Step 2: Identify the last non-zero NAV in column J (NAV)
-            nav_column_index = 10
+            nav_column_index = 10  # Column J for NAV
             last_non_zero_nav = None
+            last_nav_row = None
 
             for row in range(ws.max_row, 2, -1):
                 nav_value = ws.cell(row=row, column=nav_column_index).value
                 if isinstance(nav_value, (int, float)) and nav_value != 0:
                     last_non_zero_nav = nav_value
+                    last_nav_row = row
                     break
 
             if last_non_zero_nav is None:
-                last_non_zero_nav = 100
+                last_non_zero_nav = 100  # Default NAV value
+                last_nav_row = 3
 
-            # Step 3: Identify existing stock symbols and quantities in columns C to G
+            # Step 3: Identify the last non-zero SUMPRODUCT in column H (Basket Value)
+            sumproduct_column_index = 8  # Column H for SUMPRODUCT
+            last_sumproduct_value = None
+
+            for row in range(ws.max_row, 2, -1):
+                sumproduct_value = ws.cell(row=row, column=sumproduct_column_index).value
+                if isinstance(sumproduct_value, (int, float)) and sumproduct_value != 0:
+                    last_sumproduct_value = sumproduct_value
+                    break
+
+            if last_sumproduct_value is None:
+                last_sumproduct_value = 0
+
+            # Step 4: Identify existing stock symbols and quantities in columns C to G
             stocks_row = None
             quantities_row = None
 
@@ -130,14 +145,14 @@ def modify_workbook(filename):
             stocks = {}
             quantities = []
 
-            for col in range(3, 8):
+            for col in range(3, 8):  # Columns C to G
                 stock_symbol = ws.cell(row=stocks_row, column=col).value
                 quantity = ws.cell(row=quantities_row, column=col).value
                 if stock_symbol and isinstance(stock_symbol, str):
-                    stocks[stock_symbol] = stock_symbol
+                    stocks[stock_symbol] = stock_symbol  # Use stock symbol as stock name
                     quantities.append(quantity)
 
-            # Step 5: Fetch historical stock data
+            # Step 5: Fetch historical stock data from the next date after the last date in the sheet until today
             today_date = datetime.now().strftime('%Y-%m-%d')
             next_date_str = next_date.strftime('%Y-%m-%d')
 
@@ -167,40 +182,36 @@ def modify_workbook(filename):
             nav_values = [last_non_zero_nav]
 
             for i in range(len(closing_dates)):
-                ws.cell(row=current_row + i, column=1, value=closing_dates[i])
+                ws.cell(row=current_row + i, column=1, value=closing_dates[i])  # Insert date
 
                 basket_value = 0
-                for j, stock_symbol in enumerate(stocks.keys()):
+                for j, stock_symbol in enumerate(stocks.keys()):  # Use stock_symbol and enumerate without start=3
                     price = all_prices[stock_symbol][1][i] if i < len(all_prices[stock_symbol][1]) else 0
                     quantity = quantities[j]
                     basket_value += price * quantity
-                    ws.cell(row=current_row + i, column=3 + j, value=price)
+                    ws.cell(row=current_row + i, column=3 + j, value=price)  # Insert price starting from column C
 
-                ws.cell(row=current_row + i, column=8, value=basket_value)
+                ws.cell(row=current_row + i, column=8, value=basket_value)  # Insert basket value
+
                 basket_values.append(basket_value)
 
                 ret = (basket_value - basket_values[i - 1]) / basket_values[i - 1] if i > 0 and basket_values[i - 1] != 0 else 0
                 returns.append(ret)
-                ws.cell(row=current_row + i, column=9, value=ret)
+                ws.cell(row=current_row + i, column=9, value=ret)  # Insert return
 
                 nav = nav_values[-1] * (1 + ret)
                 nav_values.append(nav)
-                ws.cell(row=current_row + i, column=10, value=nav)
+                ws.cell(row=current_row + i, column=10, value=nav)  # Insert NAV
 
+        # Save the modified Excel file locally
         workbook.save(file_path)
+        
+
+        # Automatically push changes to GitHub
+        git_add_commit_push(filename)
 
     except Exception as e:
         st.error(f"Error modifying {filename}: {e}")
-
-# Function to execute git commands to add, commit, and push changes
-
-
-
-
-import subprocess
-
-# Define the directory containing the Excel files
-WORKBOOK_DIR = "NAV"
 
 # Function to execute git commands to add, commit, and push changes
 def git_add_commit_push(modified_files):
@@ -246,69 +257,79 @@ def git_add_commit_push(modified_files):
 
     except subprocess.CalledProcessError as e:
         print(f"Subprocess error: {e}")
-
-# Example of calling git_add_commit_push() after modifying workbooks
-def modify_workbooks_and_push():
-    # Here, you would modify the workbooks and collect their names in a list
-    modified_files = ["file1.xlsx", "file2.xlsx"]  # Example list of modified files
-
-    # Call git_add_commit_push to commit and push these changes
-    git_add_commit_push(modified_files)
-
-# Main script logic
-if __name__ == "__main__":
-    modify_workbooks_and_push()
-
-
+        
 
 # Streamlit app layout and logic
 def main():
     st.title("NAV Data Dashboard")
 
-    # Automatically modify and update all workbooks
-    modify_all_workbooks_and_push_to_github()
-
     # List available workbooks in the directory
     workbooks = list_workbooks(WORKBOOK_DIR)
 
+    # If no workbooks are found, display an error
     if not workbooks:
         st.error("No Excel workbooks found in the specified directory.")
         return
 
-    # Display the data for a specific workbook (example: the first one)
-    selected_workbook = workbooks[0]
-    st.write(f"### Displaying data from {selected_workbook}")
+    # Display dropdown menu to select a workbook
+    selected_workbook = st.selectbox("Select a workbook", workbooks)
 
-    nav_data = load_nav_data(os.path.join(WORKBOOK_DIR, selected_workbook))
+    # Date range options for the user
+    date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
+    selected_range = st.selectbox("Select Date Range", date_ranges)
 
-    if not nav_data.empty:
-        date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
-        selected_range = st.selectbox("Select Date Range", date_ranges)
-        filtered_data = filter_data_by_date(nav_data, selected_range)
-        filtered_data['Date'] = filtered_data['Date'].dt.date
+    # Trigger modification of the Excel file as soon as a selection is made
+    if selected_workbook and selected_range:
+        modify_and_push_to_github(selected_workbook)
+        
 
-        if selected_range not in ["1 Day", "Max"]:
-            filtered_data = recalculate_nav(filtered_data)
-            chart_column = 'Rebased NAV'
+    if selected_workbook:
+        st.write(f"### Displaying data from {selected_workbook}")
+
+        # Load NAV data (Columns A-J) from the selected workbook
+        nav_data = load_nav_data(os.path.join(WORKBOOK_DIR, selected_workbook))
+        
+        # Check if NAV data is successfully loaded
+        if not nav_data.empty:
+           
+
+            # Filter the data based on selected date range
+            filtered_data = filter_data_by_date(nav_data, selected_range)
+
+            # Remove the time from the Date column for cleaner display
+            filtered_data['Date'] = filtered_data['Date'].dt.date
+
+            # Recalculate NAV to start from 100 for ranges other than '1 Day' and '5 Days'
+            if selected_range not in ["1 Day", "Max"]:
+                filtered_data = recalculate_nav(filtered_data)
+                chart_column = 'Rebased NAV'
+            else:
+                chart_column = 'NAV'
+
+            # Display the filtered data as a line chart using Altair, with y-axis starting from 80
+            line_chart = alt.Chart(filtered_data).mark_line().encode(
+                x='Date:T',
+                y=alt.Y(f'{chart_column}:Q', scale=alt.Scale(domain=[80, filtered_data[chart_column].max()])),
+                tooltip=['Date:T', f'{chart_column}:Q']
+            ).properties(
+                width=700,
+                height=400
+            )
+
+            st.altair_chart(line_chart, use_container_width=True)
+            if 'Unnamed: 8' in filtered_data.columns:
+                filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
+
+            # Remove column B and rename column I as "Returns"
+            filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')
+            # Display the filtered data as a table (showing columns A-J, except B)
+            st.write("### Data Table")
+            st.dataframe(filtered_data.reset_index(drop=True))  # Reset index to remove the serial number
+
         else:
-            chart_column = 'NAV'
+            st.error("Failed to load data. Please check the workbook format.")
 
-        line_chart = alt.Chart(filtered_data).mark_line().encode(
-            x='Date:T',
-            y=alt.Y(f'{chart_column}:Q', scale=alt.Scale(domain=[80, filtered_data[chart_column].max()])),
-            tooltip=['Date:T', f'{chart_column}:Q']
-        ).properties(
-            width=700,
-            height=400
-        )
 
-        st.altair_chart(line_chart, use_container_width=True)
-
-        st.write("### Data Table")
-        st.dataframe(filtered_data.reset_index(drop=True))
-
-    else:
-        st.error("Failed to load data. Please check the workbook format.")
 
 if __name__ == "__main__":
     main()
