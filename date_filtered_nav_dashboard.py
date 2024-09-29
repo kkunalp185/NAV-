@@ -205,6 +205,10 @@ def modify_workbook(filename):
 # Function to execute git commands to add, commit, and push changes
 def git_add_commit_push(workbooks):
     try:
+        # Configure Git username and email
+        subprocess.run(["git", "config", "--global", "user.email", "anujagrawal756@gmail.com"], check=True)
+        subprocess.run(["git", "config", "--global", "user.name", "Anuj"], check=True)
+
         # Add each modified workbook individually to ensure all changes are tracked
         for workbook in workbooks:
             subprocess.run(["git", "add", os.path.join(WORKBOOK_DIR, workbook)], check=True)
@@ -269,6 +273,7 @@ def main():
             # Recalculate NAV to start from 100 for ranges other than '1 Day' and '5 Days'
             if selected_range not in ["1 Day", "Max"]:
                 filtered_data = recalculate_nav(filtered_data)
+                filtered_data.loc[:, 'Rebased NAV'] = (filtered_data['NAV'] / filtered_data['NAV'].iloc[0]) * 100
                 chart_column = 'Rebased NAV'
             else:
                 chart_column = 'NAV'
