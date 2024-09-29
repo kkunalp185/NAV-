@@ -195,61 +195,36 @@ def modify_workbook(filename):
 # Function to execute git commands to add, commit, and push changes
 
 
-def git_add_commit_push(modified_files):
-    try:
-        # Set up Git user configuration if not already set
-        subprocess.run(["git", "config", "--global", "user.email", "anujagrawal756@gmail.com"], check=True)
-        subprocess.run(["git", "config", "--global", "user.name", "anuj1963"], check=True)
+import subprocess
 
-        # Git add each modified file
-        for filename in modified_files:
-            result_add = subprocess.run(["git", "add", f"{WORKBOOK_DIR}/{filename}"], capture_output=True, text=True)
-            if result_add.returncode != 0:
-                st.error(f"Error during git add for {filename}: {result_add.stderr}")
-                return
+# Replace these variables with your actual credentials
+GITHUB_USERNAME = "anuj1963"
+GITHUB_TOKEN = "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"
+REPO_NAME = "NAV-"
 
-        # Check if there are changes to commit
-        status_result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
-        if status_result.returncode != 0:
-            st.error(f"Error checking git status: {status_result.stderr}")
-            return
+try:
+    # Configure user identity
+    subprocess.run(["git", "config", "user.name", "anuj1963"], check=True)
+    subprocess.run(["git", "config", "user.email", "anujagrawal756@gmail.com"], check=True)
 
-        # If there are no changes, return without committing
-        if not status_result.stdout.strip():
-            st.warning("No changes to commit.")
-            return
+    # Set up the remote URL with the token for authentication
+    remote_url = f"https://{GITHUB_USERNAME}:{GITHUB_TOKEN}@github.com/{GITHUB_USERNAME}/{REPO_NAME}.git"
+    subprocess.run(["git", "remote", "set-url", "origin", remote_url], check=True)
 
-        # Git commit with a single message for all files
-        commit_message = f"Updated {', '.join(modified_files)} with new data"
-        result_commit = subprocess.run(["git", "commit", "-m", commit_message], capture_output=True, text=True)
-        if result_commit.returncode != 0:
-            st.error(f"Error during git commit: {result_commit.stderr}")
-            return
+    # Pull the latest changes
+    subprocess.run(["git", "pull", "origin", "master"], check=True)
 
-        # Git push to the remote repository
-        result_push = subprocess.run(["git", "push"], capture_output=True, text=True)
-        if result_push.returncode != 0:
-            st.error(f"Error during git push: {result_push.stderr}")
+    # Add all changes
+    subprocess.run(["git", "add", "."], check=True)
 
-    except subprocess.CalledProcessError as e:
-        st.error(f"Subprocess error: {e}")
+    # Commit changes (if any)
+    subprocess.run(["git", "commit", "-m", "Auto-update files"], check=True)
 
+    # Push changes to the repository
+    subprocess.run(["git", "push", "origin", "master"], check=True)
 
-
-        # Git commit with a single message for all files
-        commit_message = f"Updated {', '.join(modified_files)} with new data"
-        result_commit = subprocess.run(["git", "commit", "-m", commit_message], capture_output=True, text=True)
-        if result_commit.returncode != 0:
-            st.error(f"Error during git commit: {result_commit.stderr}")
-            return
-
-        # Git push to the remote repository
-        result_push = subprocess.run(["git", "push"], capture_output=True, text=True)
-        if result_push.returncode != 0:
-            st.error(f"Error during git push: {result_push.stderr}")
-
-    except subprocess.CalledProcessError as e:
-        st.error(f"Subprocess error: {e}")
+except subprocess.CalledProcessError as e:
+    print(f"Error during git operation: {e}")
 
 
 
