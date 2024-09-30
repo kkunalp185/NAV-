@@ -195,15 +195,28 @@ def modify_workbook(filename):
 # Function to execute git commands to add, commit, and push changes
 def git_add_commit_push(modified_files):
     try:
+        # Git add each modified file
         for filename in modified_files:
             subprocess.run(["git", "add", f"{WORKBOOK_DIR}/{filename}"], check=True)
 
+        # Check if there are changes to commit
+        status_result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, check=True)
+        
+        # If there are no changes, return without committing
+        if not status_result.stdout.strip():
+            st.warning("No changes to commit.")
+            return
+
+        # Git commit with a single message for all files
         commit_message = f"Updated {', '.join(modified_files)} with new data"
         subprocess.run(["git", "commit", "-m", commit_message], check=True)
+
+        # Git push to the remote repository
         subprocess.run(["git", "push"], check=True)
 
     except subprocess.CalledProcessError as e:
         st.error(f"Error during git operation: {e}")
+
 
 # Streamlit app layout and logic
 def main():
