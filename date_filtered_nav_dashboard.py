@@ -287,9 +287,7 @@ def main():
     date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
     selected_range = st.selectbox("Select Date Range", date_ranges)
 
-    # Trigger modification of the Excel file as soon as a selection is made
-    if selected_workbook and selected_range:
-        modify_and_push_to_github(selected_workbook)
+  
         
 
     if selected_workbook:
