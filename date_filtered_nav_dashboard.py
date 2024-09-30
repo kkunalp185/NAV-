@@ -74,9 +74,27 @@ def recalculate_nav(filtered_data):
     # Scale NAV values starting from 100
     filtered_data['Rebased NAV'] = (filtered_data['NAV'] / initial_nav) * 100
     return filtered_data
+    
+def modify_all_workbooks_and_push_to_github():
+    workbooks = list_workbooks(WORKBOOK_DIR)
+    if not workbooks:
+        st.error("No workbooks found to modify.")
+        return
 
+    modified_files = []
+
+    for filename in workbooks:
+        try:
+            modify_workbook(filename)
+            modified_files.append(filename)
+        except Exception as e:
+            st.error(f"Error modifying {filename}: {e}")
+
+    # Push all modified files to GitHub
+    if modified_files:
+        git_add_commit_push(modified_files)
 # Function to modify the Excel file locally and automatically push changes to GitHub
-def modify_and_push_to_github(filename):
+def modify_workbooks(filename):
     # Path to the Excel file
     file_path = os.path.join(WORKBOOK_DIR, filename)
     
@@ -207,14 +225,13 @@ def modify_and_push_to_github(filename):
         workbook.save(file_path)
         
 
-        # Automatically push changes to GitHub
-        git_add_commit_push(filename)
+        
 
     except Exception as e:
         st.error(f"Error modifying {filename}: {e}")
 
 # Function to execute git commands to add, commit, and push changes
-def git_add_commit_push(filename):
+def git_add_commit_push(modified_files):
     try:
         # Git add each modified file
         for filename in modified_files:
@@ -254,7 +271,7 @@ def git_add_commit_push(filename):
 # Streamlit app layout and logic
 def main():
     st.title("NAV Data Dashboard")
-
+    modify_all_workbooks_and_push_to_github()
     # List available workbooks in the directory
     workbooks = list_workbooks(WORKBOOK_DIR)
 
