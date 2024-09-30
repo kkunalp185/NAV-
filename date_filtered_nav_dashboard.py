@@ -234,7 +234,7 @@ def main():
 
     # Display the data for a specific workbook (example: the first one)
     selected_workbook = st.selectbox("Select a workbook", workbooks)
-    st.write(f"### Displaying data from {selected_workbook}")
+    
 
     nav_data = load_nav_data(os.path.join(WORKBOOK_DIR, selected_workbook))
 
@@ -258,7 +258,7 @@ def main():
             width=700,
             height=400
         )
-
+        st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
         if 'Unnamed: 8' in filtered_data.columns:
                 filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
