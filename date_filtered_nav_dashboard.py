@@ -218,11 +218,17 @@ def git_add_commit_push(modified_files):
     try:
         # Git add each modified file
         for filename in modified_files:
-            subprocess.run(["git", "add", f"{WORKBOOK_DIR}/{filename}"], check=True)
+            result_add = subprocess.run(["git", "add", f"{WORKBOOK_DIR}/{filename}"], capture_output=True, text=True)
+            if result_add.returncode != 0:
+                st.error(f"Error during git add for {filename}: {result_add.stderr}")
+                return
 
         # Check if there are changes to commit
-        status_result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, check=True)
-        
+        status_result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+        if status_result.returncode != 0:
+            st.error(f"Error checking git status: {status_result.stderr}")
+            return
+
         # If there are no changes, return without committing
         if not status_result.stdout.strip():
             st.warning("No changes to commit.")
@@ -230,34 +236,20 @@ def git_add_commit_push(modified_files):
 
         # Git commit with a single message for all files
         commit_message = f"Updated {', '.join(modified_files)} with new data"
-        subprocess.run(["git", "commit", "-m", commit_message], check=True)
-
-        # Git push to the remote repository
-        subprocess.run(["git", "push"], check=True)
-
-    except subprocess.CalledProcessError as e:
-        st.error(f"Error during git operation: {e}")
-
-        # Git commit with a single message for all files
-        commit_message = f"Updated {', '.join(modified_files)} with new data"
         result_commit = subprocess.run(["git", "commit", "-m", commit_message], capture_output=True, text=True)
         if result_commit.returncode != 0:
-            print(f"Error during git commit: {result_commit.stderr}")
+            st.error(f"Error during git commit: {result_commit.stderr}")
             return
-
-        # Set up the remote URL with token for authentication (if needed)
-        GITHUB_TOKEN = "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"  # Replace with your actual GitHub token
-        subprocess.run(["git", "remote", "set-url", "origin",
-                        f"https://x-access-token:{GITHUB_TOKEN}@github.com/anuj1963/NAV-.git"], check=True)
 
         # Git push to the remote repository
         result_push = subprocess.run(["git", "push"], capture_output=True, text=True)
         if result_push.returncode != 0:
-            print(f"Error during git push: {result_push.stderr}")
+            st.error(f"Error during git push: {result_push.stderr}")
 
     except subprocess.CalledProcessError as e:
-        print(f"Subprocess error: {e}")
-        
+        st.error(f"Subprocess error: {e}")
+
+
 
 # Streamlit app layout and logic
 def main():
