@@ -216,27 +216,27 @@ def modify_and_push_to_github(filename):
 # Function to execute git commands to add, commit, and push changes
 def git_add_commit_push(modified_files):
     try:
-        # Set up Git user configuration if not already set
-        subprocess.run(["git", "config", "user.name", "anuj1963"], check=True)
-        subprocess.run(["git", "config", "user.email", "anujagrawal756@gmail.com"], check=True)
-
         # Git add each modified file
         for filename in modified_files:
-            result_add = subprocess.run(["git", "add", f"{WORKBOOK_DIR}/{filename}"], capture_output=True, text=True)
-            if result_add.returncode != 0:
-                print(f"Error during git add for {filename}: {result_add.stderr}")
-                return
+            subprocess.run(["git", "add", f"{WORKBOOK_DIR}/{filename}"], check=True)
 
         # Check if there are changes to commit
-        status_result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
-        if status_result.returncode != 0:
-            print(f"Error checking git status: {status_result.stderr}")
-            return
-
+        status_result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, check=True)
+        
         # If there are no changes, return without committing
         if not status_result.stdout.strip():
-            print("No changes to commit.")
+            st.warning("No changes to commit.")
             return
+
+        # Git commit with a single message for all files
+        commit_message = f"Updated {', '.join(modified_files)} with new data"
+        subprocess.run(["git", "commit", "-m", commit_message], check=True)
+
+        # Git push to the remote repository
+        subprocess.run(["git", "push"], check=True)
+
+    except subprocess.CalledProcessError as e:
+        st.error(f"Error during git operation: {e}")
 
         # Git commit with a single message for all files
         commit_message = f"Updated {', '.join(modified_files)} with new data"
