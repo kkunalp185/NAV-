@@ -214,7 +214,7 @@ def modify_and_push_to_github(filename):
         st.error(f"Error modifying {filename}: {e}")
 
 # Function to execute git commands to add, commit, and push changes
-def git_add_commit_push(modified_files):
+def git_add_commit_push(filename):
     try:
         # Git add each modified file
         for filename in modified_files:
