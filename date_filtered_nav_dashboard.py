@@ -260,7 +260,11 @@ def main():
         )
 
         st.altair_chart(line_chart, use_container_width=True)
+        if 'Unnamed: 8' in filtered_data.columns:
+                filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
 
+            # Remove column B and rename column I as "Returns"
+        filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')
         st.write("### Data Table")
         st.dataframe(filtered_data.reset_index(drop=True))
 
