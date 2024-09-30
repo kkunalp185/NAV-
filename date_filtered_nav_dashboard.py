@@ -233,7 +233,7 @@ def main():
         return
 
     # Display the data for a specific workbook (example: the first one)
-    selected_workbook = workbooks[0]
+    selected_workbook = st.selectbox("Select a workbook", workbooks)
     st.write(f"### Displaying data from {selected_workbook}")
 
     nav_data = load_nav_data(os.path.join(WORKBOOK_DIR, selected_workbook))
