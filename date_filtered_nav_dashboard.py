@@ -103,7 +103,7 @@ def modify_workbook(filename):
             last_date_cell = ws.cell(row=ws.max_row, column=1).value
             if isinstance(last_date_cell, datetime):
                 last_date = last_date_cell
-            next_date = last_date + timedelta(days=1)
+                next_date = last_date + timedelta(days=1)
 
             # Step 2: Identify the last non-zero NAV in column J (NAV)
             nav_column_index = 10
