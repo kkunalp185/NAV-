@@ -255,7 +255,6 @@ def git_add_commit_push(modified_files):
         print(f"Error during git operation: {e}")
 
 
-# Streamlit app layout and logic
 def main():
     st.title("NAV Data Dashboard")
 
@@ -272,8 +271,9 @@ def main():
     # Display the data for a specific workbook (example: the first one)
     selected_workbook = st.selectbox("Select a workbook", workbooks)
     
+    file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
 
-    nav_data = load_nav_data(os.path.join(WORKBOOK_DIR, selected_workbook))
+    nav_data = load_nav_data(file_path)
 
     if not nav_data.empty:
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
@@ -297,16 +297,52 @@ def main():
         )
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
-        if 'Unnamed: 8' in filtered_data.columns:
+
+        # Load the workbook to get current stock names
+        try:
+            workbook = openpyxl.load_workbook(file_path)
+            ws = workbook.active  # Assuming the data is in the active sheet
+            
+            # Get stock names from the worksheet (assumes stocks are listed in columns C to G in a row named "Stocks")
+            stocks_row = None
+            for row in range(1, ws.max_row + 1):
+                cell_value = ws.cell(row=row, column=2).value
+                if cell_value == "Stocks":
+                    stocks_row = row
+                    break
+
+            if stocks_row is not None:
+                stock_names = []
+                for col in range(3, 8):  # Columns C to G
+                    stock_name = ws.cell(row=stocks_row, column=col).value
+                    if stock_name and isinstance(stock_name, str):
+                        stock_names.append(stock_name)
+                
+                # Rename columns in filtered_data to match the stock names
+                stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
+                filtered_data.rename(columns=stock_columns, inplace=True)
+
+                # Ensure new stock names added in the future are appended as new columns
+                new_stock_names = [name for name in stock_names if name not in filtered_data.columns]
+                for new_stock in new_stock_names:
+                    filtered_data[new_stock] = None  # Add new columns with default None values
+
+            # Remove unnecessary columns before displaying
+            if 'Unnamed: 8' in filtered_data.columns:
                 filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
 
-            # Remove column B and rename column I as "Returns"
-        filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')
-        st.write("### Data Table")
-        st.dataframe(filtered_data.reset_index(drop=True))
+            # Drop the "Stocks" column if it exists (from column B)
+            filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')
+
+            # Display the updated filtered data
+            st.write("### Data Table")
+            st.dataframe(filtered_data.reset_index(drop=True))
+
+        except Exception as e:
+            st.error(f"Error loading workbook to extract stock names: {e}")
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
-
+        
 if __name__ == "__main__":
     main()
