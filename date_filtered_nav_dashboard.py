@@ -91,18 +91,25 @@ def modify_workbook(filename):
             ws = workbook[sheet_name]
             print(f"Modifying sheet: {sheet_name}")
 
-            # Step 1: Identify the last date in column A (assuming it's the date column)
-            last_date_cell = ws.cell(row=ws.max_row, column=1).value
-            if isinstance(last_date_cell, datetime):
-                last_date = last_date_cell
-            else:
+            # Step 1: Identify the actual last date in column A
+            last_date = None
+            for row in range(ws.max_row, 1, -1):  # Iterate from the last row upwards
+                cell_value = ws.cell(row=row, column=1).value
+                if isinstance(cell_value, datetime):
+                    last_date = cell_value
+                    break
+
+            if last_date is None:
+                # If no valid date is found, set a fallback date
                 last_date = datetime.now() - timedelta(days=30)
+
             next_date = last_date + timedelta(days=1)
 
-            # Step 2: Identify the last non-zero NAV in column J (NAV)
+            # Step 2 and onwards: Rest of the processing
             nav_column_index = 10
             last_non_zero_nav = None
 
+            # Existing logic to find the last non-zero NAV value
             for row in range(ws.max_row, 2, -1):
                 nav_value = ws.cell(row=row, column=nav_column_index).value
                 if isinstance(nav_value, (int, float)) and nav_value != 0:
