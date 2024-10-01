@@ -4,6 +4,7 @@ import os
 from datetime import timedelta
 import altair as alt
 import openpyxl
+from openpyxl.styles import NamedStyle
 from datetime import datetime
 import yfinance as yf
 import subprocess  # To run git commands
@@ -86,18 +87,27 @@ def modify_workbook(filename):
     file_path = os.path.join(WORKBOOK_DIR, filename)
     try:
         workbook = openpyxl.load_workbook(file_path)
+        date_style = NamedStyle(name="datetime", number_format='YYYY-MM-DD')
 
         for sheet_name in workbook.sheetnames:
             ws = workbook[sheet_name]
             print(f"Modifying sheet: {sheet_name}")
 
+           
             # Step 1: Identify the actual last date in column A
             last_date = None
             for row in range(ws.max_row, 1, -1):  # Iterate from the last row upwards
                 cell_value = ws.cell(row=row, column=1).value
+                # Ensure cell_value is interpreted as a datetime
                 if isinstance(cell_value, datetime):
                     last_date = cell_value
                     break
+                elif isinstance(cell_value, str):
+                    try:
+                        last_date = datetime.strptime(cell_value, '%Y-%m-%d')
+                        break
+                    except ValueError:
+                        continue  # Skip rows that cannot be parsed as a date
 
             if last_date is None:
                 # If no valid date is found, set a fallback date
@@ -167,14 +177,23 @@ def modify_workbook(filename):
                     continue
 
             # Step 6: Insert the fetched data and perform calculations
-            current_row = ws.max_row + 1
+           
 
             basket_values = []
             returns = []
             nav_values = [last_non_zero_nav]
 
             for i in range(len(closing_dates)):
-                ws.cell(row=current_row + i, column=1, value=closing_dates[i])
+                current_date = datetime.strptime(closing_dates[i], '%Y-%m-%d').date()
+                if any(ws.cell(row=r, column=1).value == current_date for r in range(2, ws.max_row + 1)):
+                    print(f"Date {current_date} already exists. Skipping.")
+                    continue
+                    
+                current_row = ws.max_row + 1
+                    
+                date_value = datetime.strptime(closing_dates[i], '%Y-%m-%d')
+                date_cell = ws.cell(row=current_row, column=1, value=date_value)
+                date_cell.style = date_style  # Apply the date style to the cell
 
                 basket_value = 0
                 for j, stock_symbol in enumerate(stocks.keys()):
