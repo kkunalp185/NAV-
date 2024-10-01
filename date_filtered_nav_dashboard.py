@@ -214,6 +214,8 @@ def modify_workbook(filename):
 # Function to execute git commands to add, commit, and push changes
 def git_add_commit_push(modified_files):
     try:
+        git config --global user.email "anujagrawal756.com"
+        git config --global user.name "Anuj"
         # Git add each modified file
         for filename in modified_files:
             subprocess.run(["git", "add", f"{WORKBOOK_DIR}/{filename}"], check=True)
