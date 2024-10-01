@@ -81,6 +81,7 @@ def modify_all_workbooks_and_push_to_github():
     if modified_files:
         git_add_commit_push(modified_files)
 
+# Function to modify a single Excel workbook
 def modify_workbook(filename):
     file_path = os.path.join(WORKBOOK_DIR, filename)
     try:
@@ -90,25 +91,18 @@ def modify_workbook(filename):
             ws = workbook[sheet_name]
             print(f"Modifying sheet: {sheet_name}")
 
-            # Step 1: Identify the actual last date in column A
-            last_date = None
-            for row in range(ws.max_row, 1, -1):  # Iterate from the last row upwards
-                cell_value = ws.cell(row=row, column=1).value
-                if isinstance(cell_value, datetime):
-                    last_date = cell_value
-                    break
-
-            if last_date is None:
-                # If no valid date is found, set a fallback date
+            # Step 1: Identify the last date in column A (assuming it's the date column)
+            last_date_cell = ws.cell(row=ws.max_row, column=1).value
+            if isinstance(last_date_cell, datetime):
+                last_date = last_date_cell
+            else:
                 last_date = datetime.now() - timedelta(days=30)
-
             next_date = last_date + timedelta(days=1)
 
-            # Step 2 and onwards: Rest of the processing
+            # Step 2: Identify the last non-zero NAV in column J (NAV)
             nav_column_index = 10
             last_non_zero_nav = None
 
-            # Existing logic to find the last non-zero NAV value
             for row in range(ws.max_row, 2, -1):
                 nav_value = ws.cell(row=row, column=nav_column_index).value
                 if isinstance(nav_value, (int, float)) and nav_value != 0:
@@ -117,7 +111,6 @@ def modify_workbook(filename):
 
             if last_non_zero_nav is None:
                 last_non_zero_nav = 100
-
 
             # Step 3: Identify existing stock symbols and quantities in columns C to G
             stocks_row = None
@@ -167,44 +160,32 @@ def modify_workbook(filename):
                     continue
 
             # Step 6: Insert the fetched data and perform calculations
+            current_row = ws.max_row + 1
+
             basket_values = []
             returns = []
             nav_values = [last_non_zero_nav]
 
             for i in range(len(closing_dates)):
-                # Convert the current date to datetime.date for comparison
-                current_date = datetime.strptime(closing_dates[i], '%Y-%m-%d').date()
+                ws.cell(row=current_row + i, column=1, value=closing_dates[i])
 
-                # Check if the date already exists in the existing_dates set
-                if current_date in existing_dates:
-                    print(f"Date {current_date} already exists. Skipping.")
-                    continue
-
-                current_row = ws.max_row + 1  # Add data to the next empty row
-
-                # Insert date
-                ws.cell(row=current_row, column=1, value=closing_dates[i])
-
-                # Calculate basket value for the current date
                 basket_value = 0
                 for j, stock_symbol in enumerate(stocks.keys()):
                     price = all_prices[stock_symbol][1][i] if i < len(all_prices[stock_symbol][1]) else 0
                     quantity = quantities[j]
                     basket_value += price * quantity
-                    ws.cell(row=current_row, column=3 + j, value=price)  # Insert price starting from column C
+                    ws.cell(row=current_row + i, column=3 + j, value=price)
 
-                ws.cell(row=current_row, column=8, value=basket_value)
+                ws.cell(row=current_row + i, column=8, value=basket_value)
                 basket_values.append(basket_value)
 
-                # Calculate returns
                 ret = (basket_value - basket_values[i - 1]) / basket_values[i - 1] if i > 0 and basket_values[i - 1] != 0 else 0
                 returns.append(ret)
-                ws.cell(row=current_row, column=9, value=ret)
+                ws.cell(row=current_row + i, column=9, value=ret)
 
-                # Calculate NAV
                 nav = nav_values[-1] * (1 + ret)
                 nav_values.append(nav)
-                ws.cell(row=current_row, column=10, value=nav)
+                ws.cell(row=current_row + i, column=10, value=nav)
 
         workbook.save(file_path)
 
@@ -214,8 +195,6 @@ def modify_workbook(filename):
 # Function to execute git commands to add, commit, and push changes
 def git_add_commit_push(modified_files):
     try:
-        git config --global user.email "anujagrawal756.com"
-        git config --global user.name "Anuj"
         # Git add each modified file
         for filename in modified_files:
             subprocess.run(["git", "add", f"{WORKBOOK_DIR}/{filename}"], check=True)
