@@ -81,7 +81,6 @@ def modify_all_workbooks_and_push_to_github():
     if modified_files:
         git_add_commit_push(modified_files)
 
-# Function to modify a single Excel workbook
 def modify_workbook(filename):
     file_path = os.path.join(WORKBOOK_DIR, filename)
     try:
@@ -91,26 +90,25 @@ def modify_workbook(filename):
             ws = workbook[sheet_name]
             print(f"Modifying sheet: {sheet_name}")
 
-            # Step 1: Identify the last date in column A (assuming it's the date column)
-            # Gather all existing dates in column A
-            existing_dates = set()
-            for row in range(2, ws.max_row + 1):
+            # Step 1: Identify the actual last date in column A
+            last_date = None
+            for row in range(ws.max_row, 1, -1):  # Iterate from the last row upwards
                 cell_value = ws.cell(row=row, column=1).value
                 if isinstance(cell_value, datetime):
-                    existing_dates.add(cell_value.date())
+                    last_date = cell_value
+                    break
 
-            # If there's no valid date, start from 30 days ago
-            last_date_cell = ws.cell(row=ws.max_row, column=1).value
-            if isinstance(last_date_cell, datetime):
-                last_date = last_date_cell
-            else:
+            if last_date is None:
+                # If no valid date is found, set a fallback date
                 last_date = datetime.now() - timedelta(days=30)
+
             next_date = last_date + timedelta(days=1)
 
-            # Step 2: Identify the last non-zero NAV in column J (NAV)
+            # Step 2 and onwards: Rest of the processing
             nav_column_index = 10
             last_non_zero_nav = None
 
+            # Existing logic to find the last non-zero NAV value
             for row in range(ws.max_row, 2, -1):
                 nav_value = ws.cell(row=row, column=nav_column_index).value
                 if isinstance(nav_value, (int, float)) and nav_value != 0:
@@ -119,6 +117,7 @@ def modify_workbook(filename):
 
             if last_non_zero_nav is None:
                 last_non_zero_nav = 100
+
 
             # Step 3: Identify existing stock symbols and quantities in columns C to G
             stocks_row = None
