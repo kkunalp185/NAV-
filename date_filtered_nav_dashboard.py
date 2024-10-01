@@ -116,7 +116,7 @@ def modify_workbook(filename):
 
             if last_date is None:
                 # If no valid date is found, set a fallback date
-                last_date = datetime.now() - timedelta(days=30)
+                last_date = datetime.now() - timedelta(days=1)
 
             next_date = last_date + timedelta(days=1)
 
