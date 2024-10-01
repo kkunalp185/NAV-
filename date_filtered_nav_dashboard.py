@@ -87,18 +87,23 @@ def modify_workbook(filename):
     file_path = os.path.join(WORKBOOK_DIR, filename)
     try:
         workbook = openpyxl.load_workbook(file_path)
+
+        # Create a style for date formatting
         date_style = NamedStyle(name="datetime", number_format='YYYY-MM-DD')
 
         for sheet_name in workbook.sheetnames:
             ws = workbook[sheet_name]
             print(f"Modifying sheet: {sheet_name}")
 
-           
-            # Step 1: Identify the actual last date in column A
+            # Step 1: Find the actual last row with data in the worksheet
+            last_row = ws.max_row
+            while last_row > 1 and ws.cell(row=last_row, column=1).value in (None, ""):
+                last_row -= 1
+
+            # Step 2: Determine the next date to add
             last_date = None
-            for row in range(ws.max_row, 1, -1):  # Iterate from the last row upwards
+            for row in range(last_row, 1, -1):
                 cell_value = ws.cell(row=row, column=1).value
-                # Ensure cell_value is interpreted as a datetime
                 if isinstance(cell_value, datetime):
                     last_date = cell_value
                     break
@@ -115,12 +120,11 @@ def modify_workbook(filename):
 
             next_date = last_date + timedelta(days=1)
 
-            # Step 2 and onwards: Rest of the processing
+            # Step 3: Identify the last non-zero NAV in column J (NAV)
             nav_column_index = 10
             last_non_zero_nav = None
 
-            # Existing logic to find the last non-zero NAV value
-            for row in range(ws.max_row, 2, -1):
+            for row in range(last_row, 1, -1):
                 nav_value = ws.cell(row=row, column=nav_column_index).value
                 if isinstance(nav_value, (int, float)) and nav_value != 0:
                     last_non_zero_nav = nav_value
@@ -129,7 +133,7 @@ def modify_workbook(filename):
             if last_non_zero_nav is None:
                 last_non_zero_nav = 100
 
-            # Step 3: Identify existing stock symbols and quantities in columns C to G
+            # Step 4: Identify existing stock symbols and quantities in columns C to G
             stocks_row = None
             quantities_row = None
 
@@ -177,41 +181,48 @@ def modify_workbook(filename):
                     continue
 
             # Step 6: Insert the fetched data and perform calculations
-           
-
             basket_values = []
             returns = []
             nav_values = [last_non_zero_nav]
 
             for i in range(len(closing_dates)):
+                # Convert the current date to datetime.date for comparison
                 current_date = datetime.strptime(closing_dates[i], '%Y-%m-%d').date()
-                if any(ws.cell(row=r, column=1).value == current_date for r in range(2, ws.max_row + 1)):
+
+                # Check if the date already exists in the worksheet
+                if any(ws.cell(row=r, column=1).value == current_date for r in range(2, last_row + 1)):
                     print(f"Date {current_date} already exists. Skipping.")
                     continue
-                    
-                current_row = ws.max_row + 1
-                    
+
+                current_row = last_row + 1  # Add data to the immediate next row after the last data row
+                last_row += 1
+
+                # Insert date
                 date_value = datetime.strptime(closing_dates[i], '%Y-%m-%d')
                 date_cell = ws.cell(row=current_row, column=1, value=date_value)
                 date_cell.style = date_style  # Apply the date style to the cell
 
+                # Calculate basket value for the current date
                 basket_value = 0
                 for j, stock_symbol in enumerate(stocks.keys()):
                     price = all_prices[stock_symbol][1][i] if i < len(all_prices[stock_symbol][1]) else 0
                     quantity = quantities[j]
                     basket_value += price * quantity
-                    ws.cell(row=current_row + i, column=3 + j, value=price)
+                    ws.cell(row=current_row, column=3 + j, value=price)  # Insert price starting from column C
 
-                ws.cell(row=current_row + i, column=8, value=basket_value)
+                # Insert basket value in column H
+                ws.cell(row=current_row, column=8, value=basket_value)
                 basket_values.append(basket_value)
 
+                # Calculate returns and insert in column I
                 ret = (basket_value - basket_values[i - 1]) / basket_values[i - 1] if i > 0 and basket_values[i - 1] != 0 else 0
                 returns.append(ret)
-                ws.cell(row=current_row + i, column=9, value=ret)
+                ws.cell(row=current_row, column=9, value=ret)
 
+                # Calculate NAV and insert in column J
                 nav = nav_values[-1] * (1 + ret)
                 nav_values.append(nav)
-                ws.cell(row=current_row + i, column=10, value=nav)
+                ws.cell(row=current_row, column=10, value=nav)
 
         workbook.save(file_path)
 
