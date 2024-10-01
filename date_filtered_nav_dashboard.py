@@ -227,7 +227,7 @@ def modify_workbook(filename):
         workbook.save(file_path)
 
     except Exception as e:
-        st.error(f"Error modifying {filename}: {e}")
+        print(f"Error modifying {filename}: {e}")
 
 # Function to execute git commands to add, commit, and push changes
 def git_add_commit_push(modified_files):
