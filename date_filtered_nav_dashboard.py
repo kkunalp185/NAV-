@@ -7,7 +7,8 @@ import openpyxl
 from openpyxl.styles import NamedStyle
 from datetime import datetime
 import yfinance as yf
-import subprocess  # To run git commands
+import subprocess
+from openpyxl.utils import get_column_letter # To run git commands
 
 # Define the directory where the workbooks are stored (this is in the same repo)
 WORKBOOK_DIR = "NAV"  # Folder where the Excel workbooks are stored
@@ -89,7 +90,7 @@ def modify_workbook(filename):
         workbook = openpyxl.load_workbook(file_path)
 
         # Create a style for date formatting
-        date_style = NamedStyle(name="datetime", number_format='YYYY-MM-DD')
+        date_style = NamedStyle(name="datetime", number_format='yyyy-mm-dd')
         
         if "datetime" not in workbook.named_styles:
             workbook.add_named_style(date_style)
@@ -203,7 +204,7 @@ def modify_workbook(filename):
                 # Insert date
                 date_value = datetime.strptime(closing_dates[i], '%Y-%m-%d')
                 date_cell = ws.cell(row=current_row, column=1, value=date_value)
-                date_cell.number_format = 'YYYY-MM-DD'  # Apply the date style to the cell
+                date_cell.number_format = 'yyyy-mm-dd'  # Apply the date style to the cell
 
                 # Calculate basket value for the current date
                 basket_value = 0
