@@ -109,7 +109,7 @@ def modify_workbook(filename):
                     break
                 elif isinstance(cell_value, str):
                     try:
-                        last_date = datetime.strptime(cell_value, '%Y-%m-%d')
+                        last_date = datetime.strptime(cell_value, '%d-%m-%Y')
                         break
                     except ValueError:
                         continue  # Skip rows that cannot be parsed as a date
