@@ -177,7 +177,7 @@ def modify_workbook(filename):
                         continue
 
                     closing_prices = hist['Close'].tolist()
-                    closing_dates = [datetime.strptime(str(date), '%Y-%m-%d') for date in hist.index.strftime('%Y-%m-%d')]
+                    closing_dates = hist.index.strftime('%y-%m-%d').tolist()
                     all_prices[stock_symbol] = (closing_dates, closing_prices)
 
                 except Exception as e:
