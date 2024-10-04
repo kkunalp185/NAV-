@@ -90,7 +90,10 @@ def modify_workbook(filename):
 
         # Create a style for date formatting
         date_style = NamedStyle(name="datetime", number_format='YYYY-MM-DD')
-
+        
+        if "datetime" not in workbook.named_styles:
+            workbook.add_named_style(date_style)
+    
         for sheet_name in workbook.sheetnames:
             ws = workbook[sheet_name]
             print(f"Modifying sheet: {sheet_name}")
@@ -200,7 +203,7 @@ def modify_workbook(filename):
                 # Insert date
                 date_value = datetime.strptime(closing_dates[i], '%Y-%m-%d')
                 date_cell = ws.cell(row=current_row, column=1, value=date_value)
-                date_cell.style = date_style  # Apply the date style to the cell
+                date_cell.number_format = 'YYYY-MM-DD'  # Apply the date style to the cell
 
                 # Calculate basket value for the current date
                 basket_value = 0
