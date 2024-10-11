@@ -321,13 +321,6 @@ def main():
         st.write("### Data Table")
         st.dataframe(filtered_full_data.reset_index(drop=True))
 
-        
-
-            
-
-        except Exception as e:
-            st.error(f"Error loading workbook to extract stock names: {e}")
-
     else:
         st.error("Failed to load data. Please check the workbook format.")
         
