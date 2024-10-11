@@ -8,6 +8,7 @@ from openpyxl.styles import NamedStyle
 from datetime import datetime
 import yfinance as yf
 import subprocess
+from dateutil.parser import parse
 from openpyxl.utils import get_column_letter # To run git commands
 
 # Define the directory where the workbooks are stored (this is in the same repo)
@@ -303,16 +304,21 @@ def main():
         )
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
- # Load the stock changes using the adjusted logic
+    # Load the stock changes using the adjusted logic
         stock_changes = []
         try:
             workbook = openpyxl.load_workbook(file_path)
             ws = workbook.active
 
+            # Debugging variables
+            found_stocks_rows = []
+            found_dates = []
+
             # Find all occurrences of the "Stocks" keyword and their corresponding dates
             for row in range(1, ws.max_row + 1):
                 cell_value = ws.cell(row=row, column=2).value
                 if cell_value == "Stocks":
+                    found_stocks_rows.append(row)
                     stock_names = []
                     for col in range(3, 8):  # Columns C to G
                         stock_name = ws.cell(row=row, column=col).value
@@ -322,8 +328,26 @@ def main():
                     # Get the date from two rows below the current row in column A
                     date_row = row + 2
                     stock_date = ws.cell(date_row, 1).value
+
+                    # Attempt to parse the date if it's not a datetime object
+                    if not isinstance(stock_date, datetime):
+                        if isinstance(stock_date, str):
+                            try:
+                                stock_date = parse(stock_date, fuzzy=True)
+                            except ValueError:
+                                st.warning(f"Could not parse date from row {date_row}, column 1.")
+
+                    # If we successfully parsed the date, add it to stock_changes
                     if isinstance(stock_date, datetime):
                         stock_changes.append((stock_date.date(), stock_names))
+                        found_dates.append(stock_date)
+                    else:
+                        st.warning(f"No valid date found in row {date_row}, column 1.")
+
+            # Debugging output
+            st.write("### Debug Information")
+            st.write(f"Found 'Stocks' rows: {found_stocks_rows}")
+            st.write(f"Found dates: {found_dates}")
 
             # Sort stock changes by date to apply them in chronological order
             stock_changes.sort(key=lambda x: x[0])
