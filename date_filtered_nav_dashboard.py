@@ -188,6 +188,7 @@ def modify_workbook(filename):
             basket_values = []
             returns = []
             nav_values = [last_non_zero_nav]
+            previous_basket_value = basket_values[-1] if basket_values else None
 
             for i in range(len(closing_dates)):
                 # Convert the current date to datetime.date for comparison
@@ -217,8 +218,18 @@ def modify_workbook(filename):
                 # Insert basket value in column H
                 ws.cell(row=current_row, column=8, value=basket_value)
                 basket_values.append(basket_value)
+                 # Calculate returns
+                if i == 0 and previous_basket_value is not None and previous_basket_value != 0:
+                     ret = (basket_value - previous_basket_value) / previous_basket_value
+                elif i > 0 and basket_values[i - 1] != 0:
+                    ret = (basket_value - basket_values[i - 1]) / basket_values[i - 1]
+                else:
+                    ret = 0
 
-                # Calculate returns and insert in column I
+                returns.append(ret)
+                ws.cell(row=current_row, column=9, value=ret)
+
+       
                 ret = (basket_value - basket_values[i - 1]) / basket_values[i - 1] if i > 0 and basket_values[i - 1] != 0 else 0
                 returns.append(ret)
                 ws.cell(row=current_row, column=9, value=ret)
