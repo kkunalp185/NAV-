@@ -303,8 +303,7 @@ def main():
         )
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
-       
-             # Load the workbook to find all occurrences of "Stocks" and map to their respective dates
+         # Load the workbook to find all occurrences of "Stocks" and map to their respective dates
         try:
             workbook = openpyxl.load_workbook(file_path)
             ws = workbook.active
@@ -320,16 +319,16 @@ def main():
                         if stock_name and isinstance(stock_name, str):
                             stock_names.append(stock_name)
                     # Get the date from the row above if it's a date, indicating when these stocks start being relevant
-                    stock_date = ws.cell(row=row - 1, column=1).value
-                    if isinstance(stock_date, datetime):
-                        stock_changes.append((stock_date.date(), stock_names))
+                    if row > 1:  # Ensure we are not accessing row 0
+                        stock_date = ws.cell(row=row - 1, column=1).value
+                        if isinstance(stock_date, datetime):
+                            stock_changes.append((stock_date.date(), stock_names))
 
             # Sort stock changes by date to apply them in chronological order
             stock_changes.sort(key=lambda x: x[0])
 
             # Update the filtered_data based on the date ranges
             current_stock_index = 0
-            stock_column_mapping = {}
             for i, row in filtered_data.iterrows():
                 # Check if the current date moves past a stock change date
                 while current_stock_index < len(stock_changes) - 1 and row['Date'] >= stock_changes[current_stock_index + 1][0]:
@@ -342,7 +341,6 @@ def main():
 
                 # Rename the columns dynamically based on the current date range
                 filtered_data.rename(columns=stock_column_mapping, inplace=True)
-           
 
             # Display the updated filtered data
             st.write("### Data Table")
@@ -350,8 +348,6 @@ def main():
 
         except Exception as e:
             st.error(f"Error loading workbook to extract stock names: {e}")
-
-    
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
