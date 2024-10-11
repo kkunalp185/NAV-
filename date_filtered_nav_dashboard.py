@@ -386,9 +386,9 @@ def main():
         except Exception as e:
             st.error(f"Error loading workbook to extract stock names: {e}")
 
-    update_displayed_data(file_path, filtered_data)
+        update_displayed_data(file_path, filtered_data)
 
-    else:
+        else:
         st.error("Failed to load data. Please check the workbook format.")
         
 if __name__ == "__main__":
