@@ -303,7 +303,7 @@ def main():
         )
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
-       # Load the stock changes using the adjusted logic
+ # Load the stock changes using the adjusted logic
         stock_changes = []
         try:
             workbook = openpyxl.load_workbook(file_path)
@@ -332,12 +332,22 @@ def main():
             st.error(f"Error loading workbook to extract stock names: {e}")
             return
 
+        # Ensure there are stock changes available
+        if not stock_changes:
+            st.error("No stock changes found in the workbook.")
+            return
+
         # Apply stock changes to the filtered data
         current_stock_index = 0
         for i, row in filtered_data.iterrows():
             # Check if the current date moves past a stock change date
             while current_stock_index < len(stock_changes) - 1 and row['Date'] >= stock_changes[current_stock_index + 1][0]:
                 current_stock_index += 1
+
+            # Ensure the current_stock_index is within range
+            if current_stock_index >= len(stock_changes):
+                st.warning("Index out of range for stock changes.")
+                break
 
             # Use the stock names for the current date range
             current_stocks = stock_changes[current_stock_index][1]
