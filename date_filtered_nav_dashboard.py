@@ -39,18 +39,7 @@ def load_nav_data(file_path):
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
 
-# Function to load the entire sheet data
-def load_full_data(file_path):
-    try:
-        data = pd.read_excel(file_path, sheet_name=0)
-        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-        data = data.sort_values(by='Date')
-        data = data.dropna(subset=['Date'])
-        data = data.drop_duplicates(subset=['Date'], keep='first')
-        return data
-    except Exception as e:
-        st.error(f"Error reading Excel file: {e}")
-        return pd.DataFrame()
+
 
 # Function to filter data based on the selected date range
 def filter_data_by_date(data, date_range):
@@ -289,6 +278,19 @@ def main():
     selected_workbook = st.selectbox("Select a workbook", workbooks)
     
     file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
+        # Load the entire sheet data without specifying specific columns
+    def load_full_data(file_path):
+        try:
+            data = pd.read_excel(file_path, sheet_name=0, dtype=str)  # Load all columns as strings to preserve text data
+            data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+            data = data.sort_values(by='Date')
+            data = data.dropna(subset=['Date'])
+            data = data.drop_duplicates(subset=['Date'], keep='first')
+            return data
+        except Exception as e:
+            st.error(f"Error reading Excel file: {e}")
+            return pd.DataFrame()
+            
     full_data = load_full_data(file_path)
 
     nav_data = load_nav_data(file_path)
