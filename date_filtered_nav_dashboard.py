@@ -328,6 +328,9 @@ def main():
                 stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
                 filtered_data.rename(columns=stock_columns, inplace=True)
 
+            stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
+            filtered_data.rename(columns=stock_columns, inplace=True)
+
                
 
             # Remove unnecessary columns before displaying
