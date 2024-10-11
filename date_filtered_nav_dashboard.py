@@ -303,7 +303,7 @@ def main():
         )
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
-        update_stock_symbols_in_data(file_path, filtered_data)
+       
 
     
 
