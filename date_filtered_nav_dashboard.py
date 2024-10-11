@@ -63,44 +63,32 @@ def recalculate_nav(filtered_data):
     filtered_data['Rebased NAV'] = (filtered_data['NAV'] / initial_nav) * 100
     return filtered_data
 
-def update_displayed_data(file_path, filtered_data):
+def update_stock_symbols_in_data(file_path, filtered_data):
     try:
         workbook = openpyxl.load_workbook(file_path)
         ws = workbook.active
 
-        # Get current stock names from the worksheet
-        stocks_row = None
+        # Find the last occurrence of the "Stocks" keyword
+        last_stocks_row = None
         for row in range(1, ws.max_row + 1):
             cell_value = ws.cell(row=row, column=2).value
             if cell_value == "Stocks":
-                stocks_row = row
-                break
+                last_stocks_row = row  # Update to the latest found row
 
-        if stocks_row is not None:
+        # If a "Stocks" row was found, get the stock names from that row
+        if last_stocks_row is not None:
             stock_names = []
             for col in range(3, 8):  # Columns C to G
-                stock_name = ws.cell(row=stocks_row, column=col).value
+                stock_name = ws.cell(row=last_stocks_row, column=col).value
                 if stock_name and isinstance(stock_name, str):
                     stock_names.append(stock_name)
-            
-            # Update column names in the filtered data
+
+            # Update the filtered_data column names to use the current stock names
             stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
             filtered_data.rename(columns=stock_columns, inplace=True)
 
-            # Ensure new stock names added in the future are appended as new columns
-            new_stock_names = [name for name in stock_names if name not in filtered_data.columns]
-            for new_stock in new_stock_names:
-                filtered_data[new_stock] = None  # Add new columns with default None values
-
-        # Drop the "Stocks" column if it exists (from column B)
-        filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')
-
-        # Display the updated filtered data
-        st.write("### Data Table")
-        st.dataframe(filtered_data.reset_index(drop=True))
-
     except Exception as e:
-        st.error(f"Error updating displayed data with stock names: {e}")
+        st.error(f"Error updating stock symbols in data: {e}")
 
 
 # Function to modify all Excel files in the directory and push them to GitHub
@@ -341,7 +329,7 @@ def main():
         )
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
-        update_displayed_data(file_path, filtered_data)
+        update_stock_symbols_in_data(file_path, filtered_data)
 
     
 
