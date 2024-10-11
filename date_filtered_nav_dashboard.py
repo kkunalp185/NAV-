@@ -303,13 +303,13 @@ def main():
         )
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
-  # Load the workbook to find all occurrences of "Stocks" and map to their respective dates
+       # Load the stock changes using the adjusted logic
+        stock_changes = []
         try:
             workbook = openpyxl.load_workbook(file_path)
             ws = workbook.active
 
             # Find all occurrences of the "Stocks" keyword and their corresponding dates
-            stock_changes = []
             for row in range(1, ws.max_row + 1):
                 cell_value = ws.cell(row=row, column=2).value
                 if cell_value == "Stocks":
@@ -318,38 +318,40 @@ def main():
                         stock_name = ws.cell(row=row, column=col).value
                         if stock_name and isinstance(stock_name, str):
                             stock_names.append(stock_name)
-                    # Get the date from the row above if it's a date, indicating when these stocks start being relevant
-                    if row > 1:  # Ensure we are not accessing row 0
-                        stock_date = ws.cell(row=row - 1, column=1).value
-                        if isinstance(stock_date, datetime):
-                            stock_changes.append((stock_date.date(), stock_names))
+
+                    # Get the date from two rows below the current row in column A
+                    date_row = row + 2
+                    stock_date = ws.cell(date_row, 1).value
+                    if isinstance(stock_date, datetime):
+                        stock_changes.append((stock_date.date(), stock_names))
 
             # Sort stock changes by date to apply them in chronological order
             stock_changes.sort(key=lambda x: x[0])
 
-            # Update the filtered_data based on the date ranges
-            current_stock_index = 0
-            for i, row in filtered_data.iterrows():
-                # Check if the current date moves past a stock change date
-                while current_stock_index < len(stock_changes) - 1 and row['Date'] >= stock_changes[current_stock_index + 1][0]:
-                    current_stock_index += 1
-
-                # Use the stock names for the current date range
-                current_stocks = stock_changes[current_stock_index][1]
-
-                # Create a mapping for renaming the columns, handling cases where the number of columns may not match
-                unnamed_columns = [col for col in filtered_data.columns if col.startswith('Unnamed')]
-                stock_column_mapping = {unnamed_columns[j]: current_stocks[j] for j in range(min(len(current_stocks), len(unnamed_columns)))}
-
-                # Rename the columns dynamically based on the current date range
-                filtered_data.rename(columns=stock_column_mapping, inplace=True)
-
-            # Display the updated filtered data
-            st.write("### Data Table")
-            st.dataframe(filtered_data.reset_index(drop=True))
-
         except Exception as e:
             st.error(f"Error loading workbook to extract stock names: {e}")
+            return
+
+        # Apply stock changes to the filtered data
+        current_stock_index = 0
+        for i, row in filtered_data.iterrows():
+            # Check if the current date moves past a stock change date
+            while current_stock_index < len(stock_changes) - 1 and row['Date'] >= stock_changes[current_stock_index + 1][0]:
+                current_stock_index += 1
+
+            # Use the stock names for the current date range
+            current_stocks = stock_changes[current_stock_index][1]
+
+            # Create a mapping for renaming the columns, handling cases where the number of columns may not match
+            unnamed_columns = [col for col in filtered_data.columns if col.startswith('Unnamed')]
+            stock_column_mapping = {unnamed_columns[j]: current_stocks[j] for j in range(min(len(current_stocks), len(unnamed_columns)))}
+
+            # Rename the columns dynamically based on the current date range
+            filtered_data.rename(columns=stock_column_mapping, inplace=True)
+
+        # Display the updated filtered data
+        st.write("### Data Table")
+        st.dataframe(filtered_data.reset_index(drop=True))
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
