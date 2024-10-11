@@ -39,8 +39,6 @@ def load_nav_data(file_path):
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
 
-
-
 # Function to filter data based on the selected date range
 def filter_data_by_date(data, date_range):
     if date_range == "1 Day":
@@ -278,28 +276,12 @@ def main():
     selected_workbook = st.selectbox("Select a workbook", workbooks)
     
     file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
-        # Load the entire sheet data without specifying specific columns
-    def load_full_data(file_path):
-        try:
-            data = pd.read_excel(file_path, sheet_name=0, dtype=str)  # Load all columns as strings to preserve text data
-            data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-            data = data.sort_values(by='Date')
-            data = data.dropna(subset=['Date'])
-            data = data.drop_duplicates(subset=['Date'], keep='first')
-            return data
-        except Exception as e:
-            st.error(f"Error reading Excel file: {e}")
-            return pd.DataFrame()
-            
-    full_data = load_full_data(file_path)
 
     nav_data = load_nav_data(file_path)
 
     if not nav_data.empty:
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
-        filtered_full_data = filter_data_by_date(full_data, selected_range)
-        filtered_full_data['Date'] = filtered_full_data['Date'].dt.date
         filtered_data = filter_data_by_date(nav_data, selected_range)
         filtered_data['Date'] = filtered_data['Date'].dt.date
 
@@ -319,9 +301,49 @@ def main():
         )
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
-        # Display the updated filtered data
-        st.write("### Data Table")
-        st.dataframe(filtered_full_data.reset_index(drop=True))
+
+        # Load the workbook to get current stock names
+        try:
+            workbook = openpyxl.load_workbook(file_path)
+            ws = workbook.active  # Assuming the data is in the active sheet
+            
+            # Get stock names from the worksheet (assumes stocks are listed in columns C to G in a row named "Stocks")
+            stocks_row = None
+            for row in range(1, ws.max_row + 1):
+                cell_value = ws.cell(row=row, column=2).value
+                if cell_value == "Stocks":
+                    stocks_row = row
+                    break
+
+            if stocks_row is not None:
+                stock_names = []
+                for col in range(3, 8):  # Columns C to G
+                    stock_name = ws.cell(row=stocks_row, column=col).value
+                    if stock_name and isinstance(stock_name, str):
+                        stock_names.append(stock_name)
+                
+                # Rename columns in filtered_data to match the stock names
+                stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
+                filtered_data.rename(columns=stock_columns, inplace=True)
+
+                # Ensure new stock names added in the future are appended as new columns
+                new_stock_names = [name for name in stock_names if name not in filtered_data.columns]
+                for new_stock in new_stock_names:
+                    filtered_data[new_stock] = None  # Add new columns with default None values
+
+            # Remove unnecessary columns before displaying
+            if 'Unnamed: 8' in filtered_data.columns:
+                filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
+
+            # Drop the "Stocks" column if it exists (from column B)
+            filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')
+
+            # Display the updated filtered data
+            st.write("### Data Table")
+            st.dataframe(filtered_data.reset_index(drop=True))
+
+        except Exception as e:
+            st.error(f"Error loading workbook to extract stock names: {e}")
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
