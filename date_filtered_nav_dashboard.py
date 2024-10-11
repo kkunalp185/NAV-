@@ -304,9 +304,6 @@ def main():
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
        
-
-    
-
         # Load the workbook to get current stock names
         try:
             workbook = openpyxl.load_workbook(file_path)
@@ -331,10 +328,7 @@ def main():
                 stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
                 filtered_data.rename(columns=stock_columns, inplace=True)
 
-                # Ensure new stock names added in the future are appended as new columns
-                new_stock_names = [name for name in stock_names if name not in filtered_data.columns]
-                for new_stock in new_stock_names:
-                    filtered_data[new_stock] = None  # Add new columns with default None values
+               
 
             # Remove unnecessary columns before displaying
             if 'Unnamed: 8' in filtered_data.columns:
