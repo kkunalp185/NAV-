@@ -303,7 +303,7 @@ def main():
         )
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
-         # Load the workbook to find all occurrences of "Stocks" and map to their respective dates
+        # Load the workbook to find all occurrences of "Stocks" and map to their respective dates
         try:
             workbook = openpyxl.load_workbook(file_path)
             ws = workbook.active
@@ -336,8 +336,9 @@ def main():
 
                 # Use the stock names for the current date range
                 current_stocks = stock_changes[current_stock_index][1]
-                # Create a mapping for renaming the columns
-                stock_column_mapping = {f'Unnamed: {j + 2}': current_stocks[j] for j in range(len(current_stocks))}
+
+                # Create a mapping for renaming the columns, ensuring it does not exceed the number of current stocks
+                stock_column_mapping = {f'Unnamed: {j + 2}': current_stocks[j] for j in range(min(len(current_stocks), len(filtered_data.columns) - 2))}
 
                 # Rename the columns dynamically based on the current date range
                 filtered_data.rename(columns=stock_column_mapping, inplace=True)
