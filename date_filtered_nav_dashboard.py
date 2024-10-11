@@ -343,8 +343,7 @@ def main():
         st.altair_chart(line_chart, use_container_width=True)
         update_displayed_data(file_path, filtered_data)
 
-    else:
-        st.error("Failed to load data. Please check the workbook format.")
+    
 
         # Load the workbook to get current stock names
         try:
