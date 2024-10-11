@@ -342,12 +342,7 @@ def main():
 
                 # Rename the columns dynamically based on the current date range
                 filtered_data.rename(columns=stock_column_mapping, inplace=True)
-            # Remove unnecessary columns before displaying
-            if 'Unnamed: 8' in filtered_data.columns:
-                filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
-
-            # Drop the "Stocks" column if it exists (from column B)
-            filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')
+           
 
             # Display the updated filtered data
             st.write("### Data Table")
