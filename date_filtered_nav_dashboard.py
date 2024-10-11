@@ -8,7 +8,6 @@ from openpyxl.styles import NamedStyle
 from datetime import datetime
 import yfinance as yf
 import subprocess
-from dateutil.parser import parse
 from openpyxl.utils import get_column_letter # To run git commands
 
 # Define the directory where the workbooks are stored (this is in the same repo)
@@ -63,8 +62,6 @@ def recalculate_nav(filtered_data):
     initial_nav = filtered_data['NAV'].iloc[0]
     filtered_data['Rebased NAV'] = (filtered_data['NAV'] / initial_nav) * 100
     return filtered_data
-
-
 
 # Function to modify all Excel files in the directory and push them to GitHub
 def modify_all_workbooks_and_push_to_github():
@@ -304,70 +301,49 @@ def main():
         )
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
-# Load the stock changes using the adjusted logic
-        stock_changes = []
+
+        # Load the workbook to get current stock names
         try:
             workbook = openpyxl.load_workbook(file_path)
-            ws = workbook.active
-
-            # Find all occurrences of the "Stocks" keyword and their corresponding dates
+            ws = workbook.active  # Assuming the data is in the active sheet
+            
+            # Get stock names from the worksheet (assumes stocks are listed in columns C to G in a row named "Stocks")
+            stocks_row = None
             for row in range(1, ws.max_row + 1):
                 cell_value = ws.cell(row=row, column=2).value
                 if cell_value == "Stocks":
-                    stock_names = []
-                    for col in range(3, 8):  # Columns C to G
-                        stock_name = ws.cell(row=row, column=col).value
-                        if stock_name and isinstance(stock_name, str):
-                            stock_names.append(stock_name)
+                    stocks_row = row
+                    break
 
-                    # Get the date from two rows below the current row in column A
-                    date_row = row + 2
-                    stock_date = ws.cell(date_row, 1).value
+            if stocks_row is not None:
+                stock_names = []
+                for col in range(3, 8):  # Columns C to G
+                    stock_name = ws.cell(row=stocks_row, column=col).value
+                    if stock_name and isinstance(stock_name, str):
+                        stock_names.append(stock_name)
+                
+                # Rename columns in filtered_data to match the stock names
+                stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
+                filtered_data.rename(columns=stock_columns, inplace=True)
 
-                    # Attempt to parse the date if it's not a datetime object
-                    if not isinstance(stock_date, datetime):
-                        if isinstance(stock_date, str):
-                            try:
-                                stock_date = parse(stock_date, fuzzy=True)
-                            except ValueError:
-                                continue
+                # Ensure new stock names added in the future are appended as new columns
+                new_stock_names = [name for name in stock_names if name not in filtered_data.columns]
+                for new_stock in new_stock_names:
+                    filtered_data[new_stock] = None  # Add new columns with default None values
 
-                    # If we successfully parsed the date, add it to stock_changes
-                    if isinstance(stock_date, datetime):
-                        stock_changes.append((stock_date.date(), stock_names))
+            # Remove unnecessary columns before displaying
+            if 'Unnamed: 8' in filtered_data.columns:
+                filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
 
-            # Sort stock changes by date to apply them in chronological order
-            stock_changes.sort(key=lambda x: x[0])
+            # Drop the "Stocks" column if it exists (from column B)
+            filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')
+
+            # Display the updated filtered data
+            st.write("### Data Table")
+            st.dataframe(filtered_data.reset_index(drop=True))
 
         except Exception as e:
             st.error(f"Error loading workbook to extract stock names: {e}")
-            return
-
-        # Ensure there are stock changes available
-        if not stock_changes:
-            st.error("No stock changes found in the workbook.")
-            return
-
-        # Apply stock changes to the filtered data
-        current_stock_index = 0
-        for i, row in filtered_data.iterrows():
-            # Check if the current date moves past a stock change date
-            while current_stock_index < len(stock_changes) - 1 and row['Date'] >= stock_changes[current_stock_index + 1][0]:
-                current_stock_index += 1
-
-            # Use the stock names for the current date range
-            current_stocks = stock_changes[current_stock_index][1]
-
-            # Create a mapping for renaming the columns, handling cases where the number of columns may not match
-            unnamed_columns = [col for col in filtered_data.columns if col.startswith('Unnamed')]
-            stock_column_mapping = {unnamed_columns[j]: current_stocks[j] for j in range(min(len(current_stocks), len(unnamed_columns)))}
-
-            # Rename the columns dynamically based on the current date range
-            filtered_data.rename(columns=stock_column_mapping, inplace=True)
-
-        # Display the updated filtered data
-        st.write("### Data Table")
-        st.dataframe(filtered_data.reset_index(drop=True))
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
