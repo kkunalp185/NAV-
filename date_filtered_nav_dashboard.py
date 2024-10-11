@@ -304,35 +304,44 @@ def main():
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
        
-        # Load the workbook to get current stock names
+             # Load the workbook to find all occurrences of "Stocks" and map to their respective dates
         try:
             workbook = openpyxl.load_workbook(file_path)
-            ws = workbook.active  # Assuming the data is in the active sheet
-            
-            # Get stock names from the worksheet (assumes stocks are listed in columns C to G in a row named "Stocks")
-            stocks_row = None
+            ws = workbook.active
+
+            # Find all occurrences of the "Stocks" keyword and their corresponding dates
+            stock_changes = []
             for row in range(1, ws.max_row + 1):
                 cell_value = ws.cell(row=row, column=2).value
                 if cell_value == "Stocks":
-                    stocks_row = row
-                   
+                    stock_names = []
+                    for col in range(3, 8):  # Columns C to G
+                        stock_name = ws.cell(row=row, column=col).value
+                        if stock_name and isinstance(stock_name, str):
+                            stock_names.append(stock_name)
+                    # Get the date from the row above if it's a date, indicating when these stocks start being relevant
+                    stock_date = ws.cell(row=row - 1, column=1).value
+                    if isinstance(stock_date, datetime):
+                        stock_changes.append((stock_date.date(), stock_names))
 
-            if stocks_row is not None:
-                stock_names = []
-                for col in range(3, 8):  # Columns C to G
-                    stock_name = ws.cell(row=stocks_row, column=col).value
-                    if stock_name and isinstance(stock_name, str):
-                        stock_names.append(stock_name)
-                
-                # Rename columns in filtered_data to match the stock names
-                stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
-                filtered_data.rename(columns=stock_columns, inplace=True)
+            # Sort stock changes by date to apply them in chronological order
+            stock_changes.sort(key=lambda x: x[0])
 
-            stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
-            filtered_data.rename(columns=stock_columns, inplace=True)
+            # Update the filtered_data based on the date ranges
+            current_stock_index = 0
+            stock_column_mapping = {}
+            for i, row in filtered_data.iterrows():
+                # Check if the current date moves past a stock change date
+                while current_stock_index < len(stock_changes) - 1 and row['Date'] >= stock_changes[current_stock_index + 1][0]:
+                    current_stock_index += 1
 
-               
+                # Use the stock names for the current date range
+                current_stocks = stock_changes[current_stock_index][1]
+                # Create a mapping for renaming the columns
+                stock_column_mapping = {f'Unnamed: {j + 2}': current_stocks[j] for j in range(len(current_stocks))}
 
+                # Rename the columns dynamically based on the current date range
+                filtered_data.rename(columns=stock_column_mapping, inplace=True)
             # Remove unnecessary columns before displaying
             if 'Unnamed: 8' in filtered_data.columns:
                 filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
