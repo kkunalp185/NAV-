@@ -188,7 +188,12 @@ def modify_workbook(filename):
             basket_values = []
             returns = []
             nav_values = [last_non_zero_nav]
-            previous_basket_value = basket_values[-1] if basket_values else None
+           last_basket_value = None
+           for row in range(last_row, 1, -1):
+              basket_value_cell = ws.cell(row=row, column=8).value  # Assuming basket values are in column H (8th column)
+              if isinstance(basket_value_cell, (int, float)) and basket_value_cell != 0:
+                 last_basket_value = basket_value_cell
+                 break
 
             for i in range(len(closing_dates)):
                 # Convert the current date to datetime.date for comparison
