@@ -93,11 +93,13 @@ def get_stock_name_changes(file_path):
 
 def get_stock_names_for_date(stock_changes, target_date):
     """Retrieve the stock names for the given target date."""
+    # Iterate over the stock_changes to find the appropriate stock names for the target date
     for i in range(len(stock_changes) - 1):
         if stock_changes[i][0] <= target_date < stock_changes[i + 1][0]:
             return stock_changes[i][1]
-    return stock_changes[-1][1]  # Return the latest stock names if beyond the last change
 
+    # If the target date is beyond the last recorded change, use the latest stock names
+    return stock_changes[-1][1]  
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
     initial_nav = filtered_data['NAV'].iloc[0]
