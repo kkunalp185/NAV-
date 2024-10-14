@@ -56,7 +56,6 @@ def filter_data_by_date(data, date_range):
         return data[data['Date'] >= one_year_ago]
     else:  # Max
         return data
-
 def parse_date(value):
     """Attempts to parse a date from a cell value."""
     try:
@@ -98,6 +97,7 @@ def get_stock_names_for_date(stock_changes, target_date):
         if stock_changes[i][0] <= target_date < stock_changes[i + 1][0]:
             return stock_changes[i][1]
     return stock_changes[-1][1]  # Return the latest stock names if beyond the last change
+
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
     initial_nav = filtered_data['NAV'].iloc[0]
@@ -320,6 +320,7 @@ def main():
    
     nav_data = load_nav_data(file_path)
     stock_changes = get_stock_name_changes(file_path)
+    st.write("Detected Stock Name Changes:", stock_changes)
 
 
     if not nav_data.empty:
@@ -331,6 +332,7 @@ def main():
             # Get the stock names for the first date in the filtered data
             start_date = filtered_data['Date'].min()
             stock_names = get_stock_names_for_date(stock_changes, start_date)
+            st.write(f"Applying Stock Names for {start_date}: {stock_names}")
 
             # Rename columns dynamically based on the stock names
             stock_column_mapping = {
