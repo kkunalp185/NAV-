@@ -95,13 +95,22 @@ def get_data_for_stock_period(stock_changes, data, start_date, end_date):
     """Filter data for specific stock name periods."""
     relevant_data = pd.DataFrame()
 
+    # Convert start and end dates to datetime.date for consistent comparison
+    start_date = start_date.date()
+    end_date = end_date.date()
+
     # Iterate over stock name change periods to collect relevant data
     for i in range(len(stock_changes) - 1):
         change_date, stock_names = stock_changes[i]
         next_change_date = stock_changes[i + 1][0]
 
+        # Convert change dates to datetime.date
+        change_date = change_date
+        next_change_date = next_change_date
+
         # Filter data between the current change date and the next change date
-        period_data = data[(data['Date'] >= change_date) & (data['Date'] < next_change_date)]
+        period_data = data[(data['Date'].dt.date >= change_date) & 
+                           (data['Date'].dt.date < next_change_date)]
 
         # Keep only relevant stock columns (C-G from original data)
         period_data = period_data[['Date', 'NAV'] + stock_names]
@@ -109,7 +118,9 @@ def get_data_for_stock_period(stock_changes, data, start_date, end_date):
 
     # Handle the last period after the last stock change date
     last_change_date, last_stock_names = stock_changes[-1]
-    final_period_data = data[data['Date'] >= last_change_date]
+    last_change_date = last_change_date  # Ensure it's datetime.date
+
+    final_period_data = data[data['Date'].dt.date >= last_change_date]
     final_period_data = final_period_data[['Date', 'NAV'] + last_stock_names]
 
     # Combine all relevant data
