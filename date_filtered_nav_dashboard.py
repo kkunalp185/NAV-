@@ -341,7 +341,7 @@ def main():
     stock_changes = get_stock_name_changes(file_path)
     st.write("Detected Stock Name Changes:", stock_changes)
 
-if not nav_data.empty:
+    if not nav_data.empty:
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
 
