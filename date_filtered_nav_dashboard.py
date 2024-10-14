@@ -105,10 +105,15 @@ def get_all_stock_names_for_period(stock_changes, start_date, end_date):
     """Retrieve all stock names used during the given time period."""
     relevant_stocks = set()  # Use a set to avoid duplicate stock names
 
+    # Convert start_date and end_date to Timestamp for consistent comparison
+    start_ts = pd.Timestamp(start_date)
+    end_ts = pd.Timestamp(end_date)
+
     # Collect all stock names from stock changes within the selected time range
     for change_date, stock_names in stock_changes:
-        # Convert change_date to datetime.date for consistent comparison
-        if start_date <= change_date <= end_date:
+        # Ensure change_date is also a Timestamp
+        change_ts = pd.Timestamp(change_date)
+        if start_ts <= change_ts <= end_ts:
             relevant_stocks.update(stock_names)
 
     return list(relevant_stocks)  # Convert the set back to a list
