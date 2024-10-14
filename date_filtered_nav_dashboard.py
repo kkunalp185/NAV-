@@ -39,6 +39,23 @@ def load_nav_data(file_path):
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
 
+
+def extract_stock_name_changes(file_path):
+    """Extract all occurrences of stock name changes and their dates."""
+    workbook = openpyxl.load_workbook(file_path, data_only=True)
+    sheet = workbook.active
+
+    stock_changes = []
+    for row in range(1, sheet.max_row + 1):
+        if sheet.cell(row=row, column=2).value == "Stocks":
+            stock_date = sheet.cell(row=row + 2, column=1).value  # Date is 2 rows below 'Stocks'
+            stock_date = pd.to_datetime(stock_date, errors='coerce').date()
+            stock_names = [sheet.cell(row=row, column=col).value for col in range(3, 8)]
+            stock_names = [name for name in stock_names if name]
+            stock_changes.append((stock_date, stock_names))
+    return stock_changes
+
+
 # Function to filter data based on the selected date range
 def filter_data_by_date(data, date_range):
     if date_range == "1 Day":
@@ -62,89 +79,31 @@ def parse_date(value):
         return pd.to_datetime(value, errors='coerce', infer_datetime_format=True)
     except Exception:
         return None
-
-def get_stock_name_changes(file_path):
-    """Extract stock name changes with corresponding dates."""
-    stock_changes = []
-    try:
-        workbook = openpyxl.load_workbook(file_path)
-        ws = workbook.active
-
-        # Iterate over rows to detect stock name changes
-        for row in range(1, ws.max_row + 1):
-            cell_value = ws.cell(row=row, column=2).value
-            if cell_value == "Stocks":
-                stock_names = [
-                    ws.cell(row=row, column=col).value for col in range(3, 8)
-                ]
-
-                # Get the date two rows below the "Stocks" header
-                raw_date_value = ws.cell(row=row + 2, column=1).value
-                parsed_date = parse_date(raw_date_value)
-
-                if parsed_date:
-                    stock_changes.append((parsed_date.date(), stock_names))
-    except Exception as e:
-        st.error(f"Error loading stock names: {e}")
-
-    # Sort the changes by date for easier lookup
-    stock_changes.sort(key=lambda x: x[0])
-    return stock_changes
-  def clean_column_names(stock_names):
-    """Clean stock names to ensure they match DataFrame columns."""
-    return [name.strip() for name in stock_names]  # Strip any extra spaces
-
-def get_combined_data(stock_changes, data, start_date, end_date):
-    """Create one combined DataFrame with stock data aligned dynamically."""
+def get_combined_data(stock_changes, data):
+    """Combine data across stock periods into a unified DataFrame."""
     combined_data = pd.DataFrame()
-
-    # Convert start and end dates to datetime.date for consistent comparison
-    start_date = start_date.date()
-    end_date = end_date.date()
-
-    # Collect all unique stock names for column alignment
     all_stock_names = list(set(name for _, names in stock_changes for name in names))
 
-    # Iterate over stock change periods to collect relevant data
     for i in range(len(stock_changes) - 1):
         change_date, stock_names = stock_changes[i]
         next_change_date = stock_changes[i + 1][0]
-
-        # Clean stock names to ensure correct matching
-        stock_names = clean_column_names(stock_names)
-
-        # Filter data for the current stock period
-        period_data = data[(data['Date'].dt.date >= change_date) &
-                           (data['Date'].dt.date < next_change_date)]
-
-        # Select only relevant columns: Date, NAV, and matching stock names
-        available_stock_names = [name for name in stock_names if name in period_data.columns]
-        period_data = period_data[['Date', 'NAV'] + available_stock_names]
-
-        # Append this period's data to the combined DataFrame
+        period_data = data[(data['Date'].dt.date >= change_date) & (data['Date'].dt.date < next_change_date)]
+        stock_columns = [name for name in stock_names if name in period_data.columns]
+        period_data = period_data[['Date', 'NAV'] + stock_columns]
         combined_data = pd.concat([combined_data, period_data], ignore_index=True)
 
-    # Handle the last period after the final stock change date
     last_change_date, last_stock_names = stock_changes[-1]
-    last_stock_names = clean_column_names(last_stock_names)
-
     final_period_data = data[data['Date'].dt.date >= last_change_date]
-
-    available_stock_names = [name for name in last_stock_names if name in final_period_data.columns]
-    final_period_data = final_period_data[['Date', 'NAV'] + available_stock_names]
-
-    # Append the final period's data
+    stock_columns = [name for name in last_stock_names if name in final_period_data.columns]
+    final_period_data = final_period_data[['Date', 'NAV'] + stock_columns]
     combined_data = pd.concat([combined_data, final_period_data], ignore_index=True)
 
-    # Ensure all stock columns are present in the final DataFrame
     for stock in all_stock_names:
         if stock not in combined_data.columns:
-            combined_data[stock] = None  # Add missing stock columns
+            combined_data[stock] = None
 
-    # Reorder columns: Date, NAV, and stock names
-    combined_data = combined_data[['Date', 'NAV'] + all_stock_names]
+    return combined_data[['Date', 'NAV'] + all_stock_names]
 
-    return combined_data
 
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
@@ -367,28 +326,17 @@ def main():
     file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
    
     nav_data = load_nav_data(file_path)
-    stock_changes = get_stock_name_changes(file_path)
-    st.write("Detected Stock Name Changes:", stock_changes)
-    
-   if not nav_data.empty:
+    stock_changes = extract_stock_name_changes(file_path)
+
+    if not nav_data.empty:
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
 
-        # Filter NAV data based on the selected date range
         filtered_data = filter_data_by_date(nav_data, selected_range)
-
         if not filtered_data.empty:
-            # Get the start and end dates of the filtered data
-            start_date = filtered_data['Date'].min()
-            end_date = filtered_data['Date'].max()
-
-            # Get the combined data with stock columns aligned dynamically
-            combined_data = get_combined_data(stock_changes, filtered_data, start_date, end_date)
-
-            # Display the combined data in a single table
+            combined_data = get_combined_data(stock_changes, filtered_data)
             st.write("### Data Table")
             st.dataframe(combined_data.reset_index(drop=True))
-
         if selected_range not in ["1 Day", "Max"]:
             filtered_data = recalculate_nav(filtered_data)
             chart_column = 'Rebased NAV'
