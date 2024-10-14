@@ -41,17 +41,17 @@ def load_nav_data(file_path):
 
 
 def extract_stock_name_changes(file_path):
-    """Extract all occurrences of stock name changes and their dates."""
+    """Extract stock name changes and their corresponding dates."""
     workbook = openpyxl.load_workbook(file_path, data_only=True)
     sheet = workbook.active
 
     stock_changes = []
     for row in range(1, sheet.max_row + 1):
         if sheet.cell(row=row, column=2).value == "Stocks":
-            stock_date = sheet.cell(row=row + 2, column=1).value  # Date is 2 rows below 'Stocks'
+            stock_date = sheet.cell(row=row + 2, column=1).value  # Date is 2 rows below "Stocks"
             stock_date = pd.to_datetime(stock_date, errors='coerce').date()
             stock_names = [sheet.cell(row=row, column=col).value for col in range(3, 8)]
-            stock_names = [name for name in stock_names if name]
+            stock_names = [name for name in stock_names if name]  # Remove None values
             stock_changes.append((stock_date, stock_names))
     return stock_changes
 
@@ -73,31 +73,32 @@ def filter_data_by_date(data, date_range):
         return data[data['Date'] >= one_year_ago]
     else:  # Max
         return data
-def parse_date(value):
-    """Attempts to parse a date from a cell value."""
-    try:
-        return pd.to_datetime(value, errors='coerce', infer_datetime_format=True)
-    except Exception:
-        return None
+        
 def get_combined_data(stock_changes, data):
-    """Combine data across stock periods into a unified DataFrame."""
+    """Combine NAV data across all stock periods into a single table."""
     combined_data = pd.DataFrame()
     all_stock_names = list(set(name for _, names in stock_changes for name in names))
 
     for i in range(len(stock_changes) - 1):
         change_date, stock_names = stock_changes[i]
         next_change_date = stock_changes[i + 1][0]
-        period_data = data[(data['Date'].dt.date >= change_date) & (data['Date'].dt.date < next_change_date)]
+
+        period_data = data[(data['Date'].dt.date >= change_date) & 
+                           (data['Date'].dt.date < next_change_date)]
         stock_columns = [name for name in stock_names if name in period_data.columns]
+
         period_data = period_data[['Date', 'NAV'] + stock_columns]
         combined_data = pd.concat([combined_data, period_data], ignore_index=True)
 
+    # Handle the last period
     last_change_date, last_stock_names = stock_changes[-1]
     final_period_data = data[data['Date'].dt.date >= last_change_date]
     stock_columns = [name for name in last_stock_names if name in final_period_data.columns]
+
     final_period_data = final_period_data[['Date', 'NAV'] + stock_columns]
     combined_data = pd.concat([combined_data, final_period_data], ignore_index=True)
 
+    # Ensure all stock columns are present
     for stock in all_stock_names:
         if stock not in combined_data.columns:
             combined_data[stock] = None
@@ -335,8 +336,10 @@ def main():
         filtered_data = filter_data_by_date(nav_data, selected_range)
         if not filtered_data.empty:
             combined_data = get_combined_data(stock_changes, filtered_data)
-            st.write("### Data Table")
+
+            st.write("### Combined Data Table")
             st.dataframe(combined_data.reset_index(drop=True))
+            
         if selected_range not in ["1 Day", "Max"]:
             filtered_data = recalculate_nav(filtered_data)
             chart_column = 'Rebased NAV'
