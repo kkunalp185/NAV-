@@ -23,6 +23,18 @@ def list_workbooks(directory):
         st.error("Directory not found. Please ensure the specified directory exists.")
         return []
 
+def load_workbook_data(file_path):
+    """Load the entire workbook as a DataFrame."""
+    try:
+        data = pd.read_excel(file_path, sheet_name=0)  # Load entire sheet
+        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')  # Ensure 'Date' is parsed
+        data = data.dropna(subset=['Date']).sort_values('Date')  # Sort by 'Date'
+        return data.reset_index(drop=True)
+    except Exception as e:
+        st.error(f"Error loading workbook: {e}")
+        return pd.DataFrame()
+
+
 # Function to load NAV data from the selected workbook
 def load_nav_data(file_path):
     try:
@@ -39,20 +51,6 @@ def load_nav_data(file_path):
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
 
-def extract_stock_changes(file_path):
-    """Extract all stock name changes and their associated dates."""
-    workbook = openpyxl.load_workbook(file_path, data_only=True)
-    sheet = workbook.active
-    stock_changes = []
-
-    for row in range(1, sheet.max_row + 1):
-        if sheet.cell(row=row, column=2).value == "Stocks":
-            stock_date = sheet.cell(row=row + 2, column=1).value  # Date is 2 rows below 'Stocks'
-            stock_date = pd.to_datetime(stock_date, errors='coerce').date()
-            stock_names = [sheet.cell(row=row, column=col).value for col in range(3, 8)]
-            stock_changes.append((stock_date, [name for name in stock_names if name]))
-
-    return stock_changes
 
 # Function to filter data based on the selected date range
 def filter_data_by_date(data, date_range):
@@ -71,34 +69,6 @@ def filter_data_by_date(data, date_range):
         return data[data['Date'] >= one_year_ago]
     else:  # Max
         return data
-
-def merge_data_with_stocks(stock_changes, data):
-    """Merge NAV data with stock names dynamically."""
-    all_stocks = set(name for _, names in stock_changes for name in names)
-    combined_data = pd.DataFrame()
-
-    for i in range(len(stock_changes) - 1):
-        start_date, stock_names = stock_changes[i]
-        end_date = stock_changes[i + 1][0]
-
-        period_data = data[(data['Date'].dt.date >= start_date) & 
-                           (data['Date'].dt.date < end_date)]
-        for stock in all_stocks:
-            if stock not in period_data.columns:
-                period_data[stock] = None  # Add missing stock columns as None
-
-        combined_data = pd.concat([combined_data, period_data], ignore_index=True)
-
-    # Handle the last period
-    last_date, last_stock_names = stock_changes[-1]
-    last_period_data = data[data['Date'].dt.date >= last_date]
-    for stock in all_stocks:
-        if stock not in last_period_data.columns:
-            last_period_data[stock] = None  # Fill missing columns with None
-
-    combined_data = pd.concat([combined_data, last_period_data], ignore_index=True)
-    return combined_data[['Date', 'NAV'] + list(all_stocks)]
-
 
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
@@ -327,14 +297,10 @@ def main():
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
         filtered_data = filter_data_by_date(nav_data, selected_range)
-        combined_data = merge_data_with_stocks(stock_changes, filtered_data)
+        st.write("### Workbook Data (Filtered by Date Range)")
+        st.dataframe(filtered_data)
 
-        st.write("### Combined Data Table")
-        st.dataframe(combined_data)
-
-        
-        
-
+    
 
         if selected_range not in ["1 Day", "Max"]:
             filtered_data = recalculate_nav(filtered_data)
