@@ -61,17 +61,17 @@ def parse_date(value):
     """Attempts to parse a date from a cell value."""
     try:
         return pd.to_datetime(value, errors='coerce', infer_datetime_format=True)
-    except ValueError:
+    except Exception:
         return None
 
 def get_stock_name_changes(file_path):
-    """Extracts changes in stock names from the worksheet."""
+    """Extracts changes in stock names and their corresponding dates."""
     stock_changes = []  # List to store (date, stock_names) tuples
     try:
         workbook = openpyxl.load_workbook(file_path)
         ws = workbook.active
 
-        # Iterate over all rows to detect stock name changes
+        # Iterate over rows to detect stock name changes
         for row in range(1, ws.max_row + 1):
             cell_value = ws.cell(row=row, column=2).value
             if cell_value == "Stocks":
@@ -81,14 +81,14 @@ def get_stock_name_changes(file_path):
 
                 # Get the date two rows below the "Stocks" header
                 raw_date_value = ws.cell(row=row + 2, column=1).value
-                parsed_date = parse_date(raw_date_value)  # Parse date using helper function
+                parsed_date = parse_date(raw_date_value)
 
                 if parsed_date:
                     stock_changes.append((parsed_date.date(), stock_names))
     except Exception as e:
         st.error(f"Error loading stock names: {e}")
 
-    # Sort the changes by date for easy lookup
+    # Sort the changes by date for easier lookup
     stock_changes.sort(key=lambda x: x[0])
     return stock_changes
 
@@ -97,8 +97,7 @@ def get_stock_names_for_date(stock_changes, target_date):
     for i in range(len(stock_changes) - 1):
         if stock_changes[i][0] <= target_date < stock_changes[i + 1][0]:
             return stock_changes[i][1]
-    return stock_changes[-1][1] 
-
+    return stock_changes[-1][1]  # Return the latest stock names if beyond the last change
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
     initial_nav = filtered_data['NAV'].iloc[0]
@@ -329,17 +328,19 @@ def main():
         filtered_data = filter_data_by_date(nav_data, selected_range)
         filtered_data['Date'] = filtered_data['Date'].dt.date
         if not filtered_data.empty:
+            # Get the stock names for the first date in the filtered data
             start_date = filtered_data['Date'].min()
             stock_names = get_stock_names_for_date(stock_changes, start_date)
-            stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
-            filtered_data.rename(columns=stock_columns, inplace=True)
-        
 
-    # Rename columns in the filtered data to reflect the correct stock names
-        
+            # Rename columns dynamically based on the stock names
+            stock_column_mapping = {
+                f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))
+            }
+            filtered_data.rename(columns=stock_column_mapping, inplace=True)
+
+        # Display the filtered data with updated column names
         st.write("### Data Table")
         st.dataframe(filtered_data.reset_index(drop=True))
-
 
         if selected_range not in ["1 Day", "Max"]:
             filtered_data = recalculate_nav(filtered_data)
