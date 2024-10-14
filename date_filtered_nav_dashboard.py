@@ -100,6 +100,17 @@ def get_stock_names_for_date(stock_changes, target_date):
 
     # If the target date is beyond the last recorded change, use the latest stock names
     return stock_changes[-1][1]  
+
+def get_all_stock_names_for_period(stock_changes, start_date, end_date):
+    """Retrieve all stock names used during the given time period."""
+    relevant_stocks = set()  # Use a set to avoid duplicate stock names
+
+    # Collect all stock names from stock changes within the selected time range
+    for change_date, stock_names in stock_changes:
+        if start_date <= change_date <= end_date:
+            relevant_stocks.update(stock_names)
+
+    return list(relevant_stocks)  # Convert the set back to a list
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
     initial_nav = filtered_data['NAV'].iloc[0]
@@ -328,21 +339,23 @@ def main():
     if not nav_data.empty:
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
-        filtered_data = filter_data_by_date(nav_data, selected_range)
-        filtered_data['Date'] = filtered_data['Date'].dt.date
-        if not filtered_data.empty:
-            # Get the stock names for the first date in the filtered data
+         if not filtered_data.empty:
+            # Get the start and end dates of the filtered data
             start_date = filtered_data['Date'].min()
-            stock_names = get_stock_names_for_date(stock_changes, start_date)
-            st.write(f"Applying Stock Names for {start_date}: {stock_names}")
+            end_date = filtered_data['Date'].max()
 
-            # Rename columns dynamically based on the stock names
-            stock_column_mapping = {
-                f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))
-            }
-            filtered_data.rename(columns=stock_column_mapping, inplace=True)
+            # Get all stock names used during the selected period
+            all_relevant_stocks = get_all_stock_names_for_period(stock_changes, start_date, end_date)
 
-        # Display the filtered data with updated column names
+            # Debugging: Display the stock names being applied
+            st.write(f"Stock Names for {start_date} to {end_date}: {all_relevant_stocks}")
+
+            # Dynamically create columns for all relevant stock names
+            for stock in all_relevant_stocks:
+                if stock not in filtered_data.columns:
+                    filtered_data[stock] = None  # Add missing stock columns with default None values
+
+        # Display the filtered data with updated stock columns
         st.write("### Data Table")
         st.dataframe(filtered_data.reset_index(drop=True))
 
