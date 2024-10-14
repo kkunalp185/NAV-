@@ -90,16 +90,19 @@ def get_stock_name_changes(file_path):
     # Sort the changes by date for easier lookup
     stock_changes.sort(key=lambda x: x[0])
     return stock_changes
-    
-def get_combined_data_with_dynamic_names(stock_changes, data, start_date, end_date):
-    """Combine data across stock periods with dynamically changing column names."""
+  def clean_column_names(stock_names):
+    """Clean stock names to ensure they match DataFrame columns."""
+    return [name.strip() for name in stock_names]  # Strip any extra spaces
+
+def get_combined_data(stock_changes, data, start_date, end_date):
+    """Create one combined DataFrame with stock data aligned dynamically."""
     combined_data = pd.DataFrame()
 
     # Convert start and end dates to datetime.date for consistent comparison
     start_date = start_date.date()
     end_date = end_date.date()
 
-    # Create a set of all stock names across periods (for final column alignment)
+    # Collect all unique stock names for column alignment
     all_stock_names = list(set(name for _, names in stock_changes for name in names))
 
     # Iterate over stock change periods to collect relevant data
@@ -107,33 +110,38 @@ def get_combined_data_with_dynamic_names(stock_changes, data, start_date, end_da
         change_date, stock_names = stock_changes[i]
         next_change_date = stock_changes[i + 1][0]
 
-        # Filter data for the current stock change period
+        # Clean stock names to ensure correct matching
+        stock_names = clean_column_names(stock_names)
+
+        # Filter data for the current stock period
         period_data = data[(data['Date'].dt.date >= change_date) &
                            (data['Date'].dt.date < next_change_date)]
 
-        # Check if the relevant stock names exist in the period data
+        # Select only relevant columns: Date, NAV, and matching stock names
         available_stock_names = [name for name in stock_names if name in period_data.columns]
         period_data = period_data[['Date', 'NAV'] + available_stock_names]
 
-        # Append the period's data to the combined DataFrame
+        # Append this period's data to the combined DataFrame
         combined_data = pd.concat([combined_data, period_data], ignore_index=True)
 
-    # Handle the last stock period (after the final stock change)
+    # Handle the last period after the final stock change date
     last_change_date, last_stock_names = stock_changes[-1]
+    last_stock_names = clean_column_names(last_stock_names)
+
     final_period_data = data[data['Date'].dt.date >= last_change_date]
 
     available_stock_names = [name for name in last_stock_names if name in final_period_data.columns]
     final_period_data = final_period_data[['Date', 'NAV'] + available_stock_names]
 
-    # Append the final period data to the combined DataFrame
+    # Append the final period's data
     combined_data = pd.concat([combined_data, final_period_data], ignore_index=True)
 
     # Ensure all stock columns are present in the final DataFrame
     for stock in all_stock_names:
         if stock not in combined_data.columns:
-            combined_data[stock] = None  # Add missing columns with None values
+            combined_data[stock] = None  # Add missing stock columns
 
-    # Reorder columns: Date, NAV, and all stock columns
+    # Reorder columns: Date, NAV, and stock names
     combined_data = combined_data[['Date', 'NAV'] + all_stock_names]
 
     return combined_data
