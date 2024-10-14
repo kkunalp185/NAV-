@@ -64,8 +64,8 @@ def parse_date(value):
         return None
 
 def get_stock_name_changes(file_path):
-    """Extracts changes in stock names and their corresponding dates."""
-    stock_changes = []  # List to store (date, stock_names) tuples
+    """Extract stock name changes with corresponding dates."""
+    stock_changes = []
     try:
         workbook = openpyxl.load_workbook(file_path)
         ws = workbook.active
@@ -91,32 +91,32 @@ def get_stock_name_changes(file_path):
     stock_changes.sort(key=lambda x: x[0])
     return stock_changes
 
-def get_stock_names_for_date(stock_changes, target_date):
-    """Retrieve the stock names for the given target date."""
-    # Iterate over the stock_changes to find the appropriate stock names for the target date
+def get_data_for_stock_period(stock_changes, data, start_date, end_date):
+    """Filter data for specific stock name periods."""
+    relevant_data = pd.DataFrame()
+
+    # Iterate over stock name change periods to collect relevant data
     for i in range(len(stock_changes) - 1):
-        if stock_changes[i][0] <= target_date < stock_changes[i + 1][0]:
-            return stock_changes[i][1]
+        change_date, stock_names = stock_changes[i]
+        next_change_date = stock_changes[i + 1][0]
 
-    # If the target date is beyond the last recorded change, use the latest stock names
-    return stock_changes[-1][1]  
+        # Filter data between the current change date and the next change date
+        period_data = data[(data['Date'] >= change_date) & (data['Date'] < next_change_date)]
 
-def get_all_stock_names_for_period(stock_changes, start_date, end_date):
-    """Retrieve all stock names used during the given time period."""
-    relevant_stocks = set()  # Use a set to avoid duplicate stock names
+        # Keep only relevant stock columns (C-G from original data)
+        period_data = period_data[['Date', 'NAV'] + stock_names]
+        relevant_data = pd.concat([relevant_data, period_data])
 
-    # Convert start_date and end_date to Timestamp for consistent comparison
-    start_ts = pd.Timestamp(start_date)
-    end_ts = pd.Timestamp(end_date)
+    # Handle the last period after the last stock change date
+    last_change_date, last_stock_names = stock_changes[-1]
+    final_period_data = data[data['Date'] >= last_change_date]
+    final_period_data = final_period_data[['Date', 'NAV'] + last_stock_names]
 
-    # Collect all stock names from stock changes within the selected time range
-    for change_date, stock_names in stock_changes:
-        # Ensure change_date is also a Timestamp
-        change_ts = pd.Timestamp(change_date)
-        if start_ts <= change_ts <= end_ts:
-            relevant_stocks.update(stock_names)
+    # Combine all relevant data
+    relevant_data = pd.concat([relevant_data, final_period_data])
 
-    return list(relevant_stocks)  # Convert the set back to a list
+    return relevant_data
+
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
     initial_nav = filtered_data['NAV'].iloc[0]
@@ -341,31 +341,23 @@ def main():
     stock_changes = get_stock_name_changes(file_path)
     st.write("Detected Stock Name Changes:", stock_changes)
 
-
-    if not nav_data.empty:
+if not nav_data.empty:
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
+
+        # Filter NAV data by the selected date range
         filtered_data = filter_data_by_date(nav_data, selected_range)
 
         if not filtered_data.empty:
-            # Get the start and end dates of the filtered data
             start_date = filtered_data['Date'].min()
             end_date = filtered_data['Date'].max()
 
-            # Get all stock names used during the selected period
-            all_relevant_stocks = get_all_stock_names_for_period(stock_changes, start_date, end_date)
+            # Get data for the selected stock periods
+            relevant_data = get_data_for_stock_period(stock_changes, filtered_data, start_date, end_date)
 
-            # Debugging: Display the stock names being applied
-            st.write(f"Stock Names for {start_date} to {end_date}: {all_relevant_stocks}")
-
-            # Dynamically create columns for all relevant stock names
-            for stock in all_relevant_stocks:
-                if stock not in filtered_data.columns:
-                    filtered_data[stock] = None  # Add missing stock columns with default None values
-
-        # Display the filtered data with updated stock columns
-        st.write("### Data Table")
-        st.dataframe(filtered_data.reset_index(drop=True))
+            # Display the data in the same format as the Excel sheet
+            st.write("### Data Table")
+            st.dataframe(relevant_data.reset_index(drop=True))
 
         if selected_range not in ["1 Day", "Max"]:
             filtered_data = recalculate_nav(filtered_data)
