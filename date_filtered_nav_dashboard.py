@@ -57,6 +57,44 @@ def filter_data_by_date(data, date_range):
     else:  # Max
         return data
 
+
+def get_stock_name_changes(file_path):
+    """Extracts changes in stock names from the worksheet."""
+    stock_changes = []  # List to store (date, stock_names) tuples
+    try:
+        workbook = openpyxl.load_workbook(file_path)
+        ws = workbook.active
+
+        # Iterate over all rows to detect stock name changes
+        for row in range(1, ws.max_row + 1):
+            cell_value = ws.cell(row=row, column=2).value
+            if cell_value == "Stocks":
+                stock_names = [
+                    ws.cell(row=row, column=col).value for col in range(3, 8)
+                ]
+
+                # Get the date two rows below the "Stocks" header
+                date_value = ws.cell(row=row + 2, column=1).value
+                if isinstance(date_value, str):
+                    date_value = pd.to_datetime(date_value, errors='coerce')
+
+                # Store the stock names and corresponding date
+                if date_value:
+                    stock_changes.append((date_value.date(), stock_names))
+    except Exception as e:
+        st.error(f"Error loading stock names: {e}")
+
+    # Sort the changes by date for easy lookup
+    stock_changes.sort(key=lambda x: x[0])
+    return stock_changes
+
+def get_stock_names_for_date(stock_changes, target_date):
+    """Retrieve the stock names for the given target date."""
+    for i in range(len(stock_changes) - 1):
+        if stock_changes[i][0] <= target_date < stock_changes[i + 1][0]:
+            return stock_changes[i][1]
+    return stock_changes[-1][1] 
+
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
     initial_nav = filtered_data['NAV'].iloc[0]
@@ -276,14 +314,26 @@ def main():
     selected_workbook = st.selectbox("Select a workbook", workbooks)
     
     file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
-
+   
     nav_data = load_nav_data(file_path)
+    stock_changes = get_stock_name_changes(file_path)
+
 
     if not nav_data.empty:
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
         filtered_data = filter_data_by_date(nav_data, selected_range)
         filtered_data['Date'] = filtered_data['Date'].dt.date
+        if not filtered_data.empty:
+            start_date = filtered_data['Date'].min()
+            stock_names = get_stock_names_for_date(stock_changes, start_date)
+        st.write("### Data Table")
+        st.dataframe(filtered_data.reset_index(drop=True))
+
+
+            # Rename columns in the filtered data to reflect the correct stock names
+            stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
+            filtered_data.rename(columns=stock_columns, inplace=True)
 
         if selected_range not in ["1 Day", "Max"]:
             filtered_data = recalculate_nav(filtered_data)
@@ -301,46 +351,6 @@ def main():
         )
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
-
-        # Load the workbook to get current stock names
-        try:
-            workbook = openpyxl.load_workbook(file_path)
-            ws = workbook.active  # Assuming the data is in the active sheet
-            
-            # Get stock names from the worksheet (assumes stocks are listed in columns C to G in a row named "Stocks")
-            stocks_row = None
-            for row in range(1, ws.max_row + 1):
-                cell_value = ws.cell(row=row, column=2).value
-                if cell_value == "Stocks":
-                    stocks_row = row
-                    break
-
-            if stocks_row is not None:
-                stock_names = []
-                for col in range(3, 8):  # Columns C to G
-                    stock_name = ws.cell(row=stocks_row, column=col).value
-                    if stock_name and isinstance(stock_name, str):
-                        stock_names.append(stock_name)
-                
-                # Rename columns in filtered_data to match the stock names
-                stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
-                filtered_data.rename(columns=stock_columns, inplace=True)
-
-                # Ensure new stock names added in the future are appended as new columns
-                new_stock_names = [name for name in stock_names if name not in filtered_data.columns]
-                for new_stock in new_stock_names:
-                    filtered_data[new_stock] = None  # Add new columns with default None values
-
-            # Remove unnecessary columns before displaying
-            if 'Unnamed: 8' in filtered_data.columns:
-                filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
-
-            # Drop the "Stocks" column if it exists (from column B)
-            filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')
-
-            # Display the updated filtered data
-            st.write("### Data Table")
-            st.dataframe(filtered_data.reset_index(drop=True))
 
         except Exception as e:
             st.error(f"Error loading workbook to extract stock names: {e}")
