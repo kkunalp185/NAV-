@@ -57,7 +57,6 @@ def filter_data_by_date(data, date_range):
     else:  # Max
         return data
 
-
 def get_stock_name_changes(file_path):
     """Extracts changes in stock names from the worksheet."""
     stock_changes = []  # List to store (date, stock_names) tuples
@@ -74,13 +73,11 @@ def get_stock_name_changes(file_path):
                 ]
 
                 # Get the date two rows below the "Stocks" header
-                date_value = ws.cell(row=row + 2, column=1).value
-                if isinstance(date_value, str):
-                    date_value = pd.to_datetime(date_value, errors='coerce')
+                raw_date_value = ws.cell(row=row + 2, column=1).value
+                parsed_date = parse_date(raw_date_value)  # Parse date using helper function
 
-                # Store the stock names and corresponding date
-                if date_value:
-                    stock_changes.append((date_value.date(), stock_names))
+                if parsed_date:
+                    stock_changes.append((parsed_date.date(), stock_names))
     except Exception as e:
         st.error(f"Error loading stock names: {e}")
 
