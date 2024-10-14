@@ -354,9 +354,6 @@ def main():
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
 
-        except Exception as e:
-            st.error(f"Error loading workbook to extract stock names: {e}")
-
     else:
         st.error("Failed to load data. Please check the workbook format.")
         
