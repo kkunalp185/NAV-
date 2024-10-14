@@ -107,6 +107,7 @@ def get_all_stock_names_for_period(stock_changes, start_date, end_date):
 
     # Collect all stock names from stock changes within the selected time range
     for change_date, stock_names in stock_changes:
+        # Convert change_date to datetime.date for consistent comparison
         if start_date <= change_date <= end_date:
             relevant_stocks.update(stock_names)
 
