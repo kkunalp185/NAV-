@@ -57,6 +57,13 @@ def filter_data_by_date(data, date_range):
     else:  # Max
         return data
 
+def parse_date(value):
+    """Attempts to parse a date from a cell value."""
+    try:
+        return pd.to_datetime(value, errors='coerce', infer_datetime_format=True)
+    except ValueError:
+        return None
+
 def get_stock_name_changes(file_path):
     """Extracts changes in stock names from the worksheet."""
     stock_changes = []  # List to store (date, stock_names) tuples
