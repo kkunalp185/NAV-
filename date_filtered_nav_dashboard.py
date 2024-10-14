@@ -339,6 +339,8 @@ def main():
     if not nav_data.empty:
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
+        filtered_data = filter_data_by_date(nav_data, selected_range)
+
         if not filtered_data.empty:
             # Get the start and end dates of the filtered data
             start_date = filtered_data['Date'].min()
