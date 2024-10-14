@@ -291,7 +291,7 @@ def main():
     file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
 
     nav_data = load_nav_data(file_path)
-    stock_changes = extract_stock_changes(file_path)
+    
 
     if not nav_data.empty:
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
