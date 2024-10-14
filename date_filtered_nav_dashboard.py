@@ -39,23 +39,6 @@ def load_nav_data(file_path):
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
 
-
-def extract_stock_name_changes(file_path):
-    """Extract stock name changes and their corresponding dates."""
-    workbook = openpyxl.load_workbook(file_path, data_only=True)
-    sheet = workbook.active
-
-    stock_changes = []
-    for row in range(1, sheet.max_row + 1):
-        if sheet.cell(row=row, column=2).value == "Stocks":
-            stock_date = sheet.cell(row=row + 2, column=1).value  # Date is 2 rows below "Stocks"
-            stock_date = pd.to_datetime(stock_date, errors='coerce').date()
-            stock_names = [sheet.cell(row=row, column=col).value for col in range(3, 8)]
-            stock_names = [name for name in stock_names if name]  # Remove None values
-            stock_changes.append((stock_date, stock_names))
-    return stock_changes
-
-
 # Function to filter data based on the selected date range
 def filter_data_by_date(data, date_range):
     if date_range == "1 Day":
@@ -73,38 +56,6 @@ def filter_data_by_date(data, date_range):
         return data[data['Date'] >= one_year_ago]
     else:  # Max
         return data
-        
-def get_combined_data(stock_changes, data):
-    """Combine NAV data across all stock periods into a single table."""
-    combined_data = pd.DataFrame()
-    all_stock_names = list(set(name for _, names in stock_changes for name in names))
-
-    for i in range(len(stock_changes) - 1):
-        change_date, stock_names = stock_changes[i]
-        next_change_date = stock_changes[i + 1][0]
-
-        period_data = data[(data['Date'].dt.date >= change_date) & 
-                           (data['Date'].dt.date < next_change_date)]
-        stock_columns = [name for name in stock_names if name in period_data.columns]
-
-        period_data = period_data[['Date', 'NAV'] + stock_columns]
-        combined_data = pd.concat([combined_data, period_data], ignore_index=True)
-
-    # Handle the last period
-    last_change_date, last_stock_names = stock_changes[-1]
-    final_period_data = data[data['Date'].dt.date >= last_change_date]
-    stock_columns = [name for name in last_stock_names if name in final_period_data.columns]
-
-    final_period_data = final_period_data[['Date', 'NAV'] + stock_columns]
-    combined_data = pd.concat([combined_data, final_period_data], ignore_index=True)
-
-    # Ensure all stock columns are present
-    for stock in all_stock_names:
-        if stock not in combined_data.columns:
-            combined_data[stock] = None
-
-    return combined_data[['Date', 'NAV'] + all_stock_names]
-
 
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
@@ -325,21 +276,15 @@ def main():
     selected_workbook = st.selectbox("Select a workbook", workbooks)
     
     file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
-   
+
     nav_data = load_nav_data(file_path)
-    stock_changes = extract_stock_name_changes(file_path)
 
     if not nav_data.empty:
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
-
         filtered_data = filter_data_by_date(nav_data, selected_range)
-        if not filtered_data.empty:
-            combined_data = get_combined_data(stock_changes, filtered_data)
+        filtered_data['Date'] = filtered_data['Date'].dt.date
 
-            st.write("### Combined Data Table")
-            st.dataframe(combined_data.reset_index(drop=True))
-            
         if selected_range not in ["1 Day", "Max"]:
             filtered_data = recalculate_nav(filtered_data)
             chart_column = 'Rebased NAV'
@@ -356,6 +301,49 @@ def main():
         )
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
+
+        # Load the workbook to get current stock names
+        try:
+            workbook = openpyxl.load_workbook(file_path)
+            ws = workbook.active  # Assuming the data is in the active sheet
+            
+            # Get stock names from the worksheet (assumes stocks are listed in columns C to G in a row named "Stocks")
+            stocks_row = None
+            for row in range(1, ws.max_row + 1):
+                cell_value = ws.cell(row=row, column=2).value
+                if cell_value == "Stocks":
+                    stocks_row = row
+                    break
+
+            if stocks_row is not None:
+                stock_names = []
+                for col in range(3, 8):  # Columns C to G
+                    stock_name = ws.cell(row=stocks_row, column=col).value
+                    if stock_name and isinstance(stock_name, str):
+                        stock_names.append(stock_name)
+                
+                # Rename columns in filtered_data to match the stock names
+                stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
+                filtered_data.rename(columns=stock_columns, inplace=True)
+
+                # Ensure new stock names added in the future are appended as new columns
+                new_stock_names = [name for name in stock_names if name not in filtered_data.columns]
+                for new_stock in new_stock_names:
+                    filtered_data[new_stock] = None  # Add new columns with default None values
+
+            # Remove unnecessary columns before displaying
+            if 'Unnamed: 8' in filtered_data.columns:
+                filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
+
+            # Drop the "Stocks" column if it exists (from column B)
+            filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')
+
+            # Display the updated filtered data
+            st.write("### Data Table")
+            st.dataframe(filtered_data.reset_index(drop=True))
+
+        except Exception as e:
+            st.error(f"Error loading workbook to extract stock names: {e}")
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
