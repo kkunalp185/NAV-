@@ -90,48 +90,50 @@ def get_stock_name_changes(file_path):
     # Sort the changes by date for easier lookup
     stock_changes.sort(key=lambda x: x[0])
     return stock_changes
-def get_combined_stock_data(stock_changes, data, start_date, end_date):
-    """Create one DataFrame combining all stock changes during the selected period."""
+    
+def get_combined_data_with_dynamic_names(stock_changes, data, start_date, end_date):
+    """Combine data across stock periods with dynamically changing column names."""
     combined_data = pd.DataFrame()
 
     # Convert start and end dates to datetime.date for consistent comparison
     start_date = start_date.date()
     end_date = end_date.date()
 
-    # Iterate over stock name change periods to collect relevant data
+    # Create a set of all stock names across periods (for final column alignment)
+    all_stock_names = list(set(name for _, names in stock_changes for name in names))
+
+    # Iterate over stock change periods to collect relevant data
     for i in range(len(stock_changes) - 1):
         change_date, stock_names = stock_changes[i]
         next_change_date = stock_changes[i + 1][0]
 
-        # Filter data between the current change date and the next change date
-        period_data = data[(data['Date'].dt.date >= change_date) & 
+        # Filter data for the current stock change period
+        period_data = data[(data['Date'].dt.date >= change_date) &
                            (data['Date'].dt.date < next_change_date)]
 
-        # Keep only relevant stock columns if they exist
+        # Check if the relevant stock names exist in the period data
         available_stock_names = [name for name in stock_names if name in period_data.columns]
         period_data = period_data[['Date', 'NAV'] + available_stock_names]
 
-        # Append this period's data to the combined DataFrame
+        # Append the period's data to the combined DataFrame
         combined_data = pd.concat([combined_data, period_data], ignore_index=True)
 
-    # Handle the last period after the last stock change date
+    # Handle the last stock period (after the final stock change)
     last_change_date, last_stock_names = stock_changes[-1]
     final_period_data = data[data['Date'].dt.date >= last_change_date]
 
-    # Keep only relevant stock columns if they exist
     available_stock_names = [name for name in last_stock_names if name in final_period_data.columns]
     final_period_data = final_period_data[['Date', 'NAV'] + available_stock_names]
 
-    # Append the final period's data to the combined DataFrame
+    # Append the final period data to the combined DataFrame
     combined_data = pd.concat([combined_data, final_period_data], ignore_index=True)
 
-    # Fill any missing stock columns with None
-    all_stock_names = list(set(name for _, stock_names in stock_changes for name in stock_names))
+    # Ensure all stock columns are present in the final DataFrame
     for stock in all_stock_names:
         if stock not in combined_data.columns:
-            combined_data[stock] = None  # Add missing stock columns
+            combined_data[stock] = None  # Add missing columns with None values
 
-    # Reorder columns: Date, NAV, and then all stock columns
+    # Reorder columns: Date, NAV, and all stock columns
     combined_data = combined_data[['Date', 'NAV'] + all_stock_names]
 
     return combined_data
@@ -359,24 +361,21 @@ def main():
     nav_data = load_nav_data(file_path)
     stock_changes = get_stock_name_changes(file_path)
     st.write("Detected Stock Name Changes:", stock_changes)
-
-   if not nav_data.empty:
+    if not nav_data.empty:
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
 
-        # Filter NAV data by the selected date range
+        # Filter NAV data based on the selected date range
         filtered_data = filter_data_by_date(nav_data, selected_range)
 
         if not filtered_data.empty:
+            # Get the start and end dates of the filtered data
             start_date = filtered_data['Date'].min()
             end_date = filtered_data['Date'].max()
 
-            # Get the combined data for the selected stock periods
-            combined_data = get_combined_stock_data(stock_changes, filtered_data, start_date, end_date)
+            # Get the combined data with dynamic stock names
+            combined_data = get_combined_data_with_dynamic_names(stock_changes, filtered_data, start_date, end_date)
 
-            # Display the combined data in a single table
-            st.write("### Data Table")
-            st.dataframe(combined_data.reset_index(drop=True))
 
 
         if selected_range not in ["1 Day", "Max"]:
