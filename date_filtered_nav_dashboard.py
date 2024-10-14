@@ -369,7 +369,8 @@ def main():
     nav_data = load_nav_data(file_path)
     stock_changes = get_stock_name_changes(file_path)
     st.write("Detected Stock Name Changes:", stock_changes)
-    if not nav_data.empty:
+    
+   if not nav_data.empty:
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
 
@@ -381,10 +382,12 @@ def main():
             start_date = filtered_data['Date'].min()
             end_date = filtered_data['Date'].max()
 
-            # Get the combined data with dynamic stock names
-            combined_data = get_combined_data_with_dynamic_names(stock_changes, filtered_data, start_date, end_date)
+            # Get the combined data with stock columns aligned dynamically
+            combined_data = get_combined_data(stock_changes, filtered_data, start_date, end_date)
 
-
+            # Display the combined data in a single table
+            st.write("### Data Table")
+            st.dataframe(combined_data.reset_index(drop=True))
 
         if selected_range not in ["1 Day", "Max"]:
             filtered_data = recalculate_nav(filtered_data)
