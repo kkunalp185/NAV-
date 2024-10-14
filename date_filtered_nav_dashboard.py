@@ -327,13 +327,15 @@ def main():
         if not filtered_data.empty:
             start_date = filtered_data['Date'].min()
             stock_names = get_stock_names_for_date(stock_changes, start_date)
+            stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
+            filtered_data.rename(columns=stock_columns, inplace=True)
+        
+
+    # Rename columns in the filtered data to reflect the correct stock names
+        
         st.write("### Data Table")
         st.dataframe(filtered_data.reset_index(drop=True))
 
-
-            # Rename columns in the filtered data to reflect the correct stock names
-            stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
-            filtered_data.rename(columns=stock_columns, inplace=True)
 
         if selected_range not in ["1 Day", "Max"]:
             filtered_data = recalculate_nav(filtered_data)
