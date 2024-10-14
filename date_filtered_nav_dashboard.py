@@ -90,43 +90,47 @@ def get_stock_name_changes(file_path):
     # Sort the changes by date for easier lookup
     stock_changes.sort(key=lambda x: x[0])
     return stock_changes
-def get_data_for_stock_period(stock_changes, data, start_date, end_date):
-    """Filter data for specific stock name periods."""
-    relevant_data = pd.DataFrame()
+    
+def get_data_for_stock_periods(stock_changes, data, start_date, end_date):
+    """Generate a list of DataFrames, each representing a stock period."""
+    data_periods = []
 
     # Convert start and end dates to datetime.date for consistent comparison
     start_date = start_date.date()
     end_date = end_date.date()
 
-    # Iterate over stock name change periods to collect relevant data
+    # Iterate over stock name change periods
     for i in range(len(stock_changes) - 1):
         change_date, stock_names = stock_changes[i]
         next_change_date = stock_changes[i + 1][0]
 
-        # Filter data between the current change date and the next change date
+        # Convert dates to datetime.date for comparison
+        change_date = change_date
+        next_change_date = next_change_date
+
+        # Filter data for the current stock change period
         period_data = data[(data['Date'].dt.date >= change_date) & 
                            (data['Date'].dt.date < next_change_date)]
 
-        # Keep only relevant stock columns if they exist in the DataFrame
+        # Keep only relevant stock columns if they exist
         available_stock_names = [name for name in stock_names if name in period_data.columns]
         period_data = period_data[['Date', 'NAV'] + available_stock_names]
-        
-        # Append the period data to the final relevant data
-        relevant_data = pd.concat([relevant_data, period_data])
+
+        # Add this period's data to the list of DataFrames
+        data_periods.append((change_date, next_change_date, period_data))
 
     # Handle the last period after the last stock change date
     last_change_date, last_stock_names = stock_changes[-1]
     final_period_data = data[data['Date'].dt.date >= last_change_date]
 
-    # Keep only relevant stock columns if they exist in the DataFrame
+    # Keep only relevant stock columns if they exist
     available_stock_names = [name for name in last_stock_names if name in final_period_data.columns]
     final_period_data = final_period_data[['Date', 'NAV'] + available_stock_names]
 
-    # Combine all relevant data
-    relevant_data = pd.concat([relevant_data, final_period_data])
+    # Add the final period's data to the list
+    data_periods.append((last_change_date, None, final_period_data))
 
-    return relevant_data
-
+    return data_periods
 
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
@@ -356,19 +360,21 @@ def main():
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
 
-        # Filter NAV data by the selected date range
+        # Filter the NAV data based on the selected date range
         filtered_data = filter_data_by_date(nav_data, selected_range)
 
         if not filtered_data.empty:
             start_date = filtered_data['Date'].min()
             end_date = filtered_data['Date'].max()
 
-            # Get data for the selected stock periods
-            relevant_data = get_data_for_stock_period(stock_changes, filtered_data, start_date, end_date)
+            # Get the data for each stock period
+            data_periods = get_data_for_stock_periods(stock_changes, filtered_data, start_date, end_date)
 
-            # Display the data in the same format as the Excel sheet
-            st.write("### Data Table")
-            st.dataframe(relevant_data.reset_index(drop=True))
+            # Display each period's data in its own table
+            for change_date, next_change_date, period_data in data_periods:
+                st.write(f"### Data from {change_date} to {next_change_date or 'Present'}")
+                st.dataframe(period_data.reset_index(drop=True))
+
 
         if selected_range not in ["1 Day", "Max"]:
             filtered_data = recalculate_nav(filtered_data)
