@@ -90,7 +90,6 @@ def get_stock_name_changes(file_path):
     # Sort the changes by date for easier lookup
     stock_changes.sort(key=lambda x: x[0])
     return stock_changes
-
 def get_data_for_stock_period(stock_changes, data, start_date, end_date):
     """Filter data for specific stock name periods."""
     relevant_data = pd.DataFrame()
@@ -104,29 +103,30 @@ def get_data_for_stock_period(stock_changes, data, start_date, end_date):
         change_date, stock_names = stock_changes[i]
         next_change_date = stock_changes[i + 1][0]
 
-        # Convert change dates to datetime.date
-        change_date = change_date
-        next_change_date = next_change_date
-
         # Filter data between the current change date and the next change date
         period_data = data[(data['Date'].dt.date >= change_date) & 
                            (data['Date'].dt.date < next_change_date)]
 
-        # Keep only relevant stock columns (C-G from original data)
-        period_data = period_data[['Date', 'NAV'] + stock_names]
+        # Keep only relevant stock columns if they exist in the DataFrame
+        available_stock_names = [name for name in stock_names if name in period_data.columns]
+        period_data = period_data[['Date', 'NAV'] + available_stock_names]
+        
+        # Append the period data to the final relevant data
         relevant_data = pd.concat([relevant_data, period_data])
 
     # Handle the last period after the last stock change date
     last_change_date, last_stock_names = stock_changes[-1]
-    last_change_date = last_change_date  # Ensure it's datetime.date
-
     final_period_data = data[data['Date'].dt.date >= last_change_date]
-    final_period_data = final_period_data[['Date', 'NAV'] + last_stock_names]
+
+    # Keep only relevant stock columns if they exist in the DataFrame
+    available_stock_names = [name for name in last_stock_names if name in final_period_data.columns]
+    final_period_data = final_period_data[['Date', 'NAV'] + available_stock_names]
 
     # Combine all relevant data
     relevant_data = pd.concat([relevant_data, final_period_data])
 
     return relevant_data
+
 
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
