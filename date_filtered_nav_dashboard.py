@@ -23,18 +23,6 @@ def list_workbooks(directory):
         st.error("Directory not found. Please ensure the specified directory exists.")
         return []
 
-def load_entire_workbook(file_path):
-    """Load the entire workbook, preserving all data and structure."""
-    try:
-        data = pd.read_excel(file_path, sheet_name=0, dtype=str)  # Preserve all data as strings
-        if 'Date' in data.columns:
-            data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-            data = data.dropna(subset=['Date']).sort_values('Date').reset_index(drop=True)
-        return data
-    except Exception as e:
-        st.error(f"Error loading workbook: {e}")
-        return pd.DataFrame()
-
 # Function to load NAV data from the selected workbook
 def load_nav_data(file_path):
     try:
@@ -50,7 +38,6 @@ def load_nav_data(file_path):
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
-
 
 # Function to filter data based on the selected date range
 def filter_data_by_date(data, date_range):
@@ -69,20 +56,6 @@ def filter_data_by_date(data, date_range):
         return data[data['Date'] >= one_year_ago]
     else:  # Max
         return data
-
-def get_all_stock_names_over_period(data, start_date, end_date):
-    """Collect all stock names from 'Stocks' rows within the selected period."""
-    relevant_stocks = set()  # Use a set to avoid duplicate stock names
-    stock_rows = data[data.iloc[:, 1].str.contains('Stocks', na=False, case=False)]
-
-    for _, row in stock_rows.iterrows():
-        row_date = row['Date']
-        if start_date <= row_date <= end_date:
-            stock_names = row.iloc[2:7].dropna().tolist()  # Get stock names from columns C to G
-            relevant_stocks.update(stock_names)
-
-    return list(relevant_stocks)  # Convert 
-
 
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
@@ -305,33 +278,18 @@ def main():
     file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
 
     nav_data = load_nav_data(file_path)
-    workbook_data = load_entire_workbook(file_path)
-    
 
     if not nav_data.empty:
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
         filtered_data = filter_data_by_date(nav_data, selected_range)
-        start_date, end_date = filtered_data['Date'].min(), filtered_data['Date'].max()
+        filtered_data['Date'] = filtered_data['Date'].dt.date
 
-    # Collect all relevant stock names over the selected period
-    relevant_stock_names = get_all_stock_names_over_period(workbook_data, start_date, end_date)
-    st.write(f"### Stock Names in Selected Period: {', '.join(relevant_stock_names)}")
-
-    # Display the filtered workbook data
-    if not filtered_data.empty:
-        st.write("### Workbook Data (Filtered by Date Range)")
-        st.dataframe(filtered_data)
-    else:
-        st.warning("No data available for the selected date range.")
-
-    
-
-    if selected_range not in ["1 Day", "Max"]:
-        filtered_data = recalculate_nav(filtered_data)
-        chart_column = 'Rebased NAV'
-    else:
-        chart_column = 'NAV'
+        if selected_range not in ["1 Day", "Max"]:
+            filtered_data = recalculate_nav(filtered_data)
+            chart_column = 'Rebased NAV'
+        else:
+            chart_column = 'NAV'
 
         line_chart = alt.Chart(filtered_data).mark_line().encode(
             x='Date:T',
@@ -341,11 +299,54 @@ def main():
             width=700,
             height=400
         )
-    st.write(f"### Displaying data from {selected_workbook}")
-    st.altair_chart(line_chart, use_container_width=True)
+        st.write(f"### Displaying data from {selected_workbook}")
+        st.altair_chart(line_chart, use_container_width=True)
 
-     
+        # Load the workbook to get current stock names
+        try:
+            workbook = openpyxl.load_workbook(file_path)
+            ws = workbook.active  # Assuming the data is in the active sheet
+            
+            # Get stock names from the worksheet (assumes stocks are listed in columns C to G in a row named "Stocks")
+            stocks_row = None
+            for row in range(1, ws.max_row + 1):
+                cell_value = ws.cell(row=row, column=2).value
+                if cell_value == "Stocks":
+                    stocks_row = row
+                    break
 
+            if stocks_row is not None:
+                stock_names = []
+                for col in range(3, 8):  # Columns C to G
+                    stock_name = ws.cell(row=stocks_row, column=col).value
+                    if stock_name and isinstance(stock_name, str):
+                        stock_names.append(stock_name)
+                
+                # Rename columns in filtered_data to match the stock names
+                stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
+                filtered_data.rename(columns=stock_columns, inplace=True)
+
+                # Ensure new stock names added in the future are appended as new columns
+                new_stock_names = [name for name in stock_names if name not in filtered_data.columns]
+                for new_stock in new_stock_names:
+                    filtered_data[new_stock] = None  # Add new columns with default None values
+
+            # Remove unnecessary columns before displaying
+            if 'Unnamed: 8' in filtered_data.columns:
+                filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
+
+            # Drop the "Stocks" column if it exists (from column B)
+            filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')
+
+            # Display the updated filtered data
+            st.write("### Data Table")
+            st.dataframe(filtered_data.reset_index(drop=True))
+
+        except Exception as e:
+            st.error(f"Error loading workbook to extract stock names: {e}")
+
+    else:
+        st.error("Failed to load data. Please check the workbook format.")
         
 if __name__ == "__main__":
     main()
