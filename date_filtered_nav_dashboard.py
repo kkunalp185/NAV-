@@ -313,7 +313,7 @@ def main():
                 cell_value = ws.cell(row=row, column=2).value
                 if cell_value == "Stocks":
                     stocks_row = row
-                    break
+                    
 
             if stocks_row is not None:
                 stock_names = []
