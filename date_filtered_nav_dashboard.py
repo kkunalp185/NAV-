@@ -326,10 +326,6 @@ def main():
                 stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
                 filtered_data.rename(columns=stock_columns, inplace=True)
 
-                # Ensure new stock names added in the future are appended as new columns
-                new_stock_names = [name for name in stock_names if name not in filtered_data.columns]
-                for new_stock in new_stock_names:
-                    filtered_data[new_stock] = None  # Add new columns with default None values
 
             # Remove unnecessary columns before displaying
             if 'Unnamed: 8' in filtered_data.columns:
