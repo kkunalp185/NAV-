@@ -327,10 +327,10 @@ def main():
 
     
 
-        if selected_range not in ["1 Day", "Max"]:
+    if selected_range not in ["1 Day", "Max"]:
             filtered_data = recalculate_nav(filtered_data)
             chart_column = 'Rebased NAV'
-        else:
+    else:
             chart_column = 'NAV'
 
         line_chart = alt.Chart(filtered_data).mark_line().encode(
@@ -341,8 +341,8 @@ def main():
             width=700,
             height=400
         )
-        st.write(f"### Displaying data from {selected_workbook}")
-        st.altair_chart(line_chart, use_container_width=True)
+    st.write(f"### Displaying data from {selected_workbook}")
+    st.altair_chart(line_chart, use_container_width=True)
 
      
 
