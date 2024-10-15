@@ -14,6 +14,7 @@ from openpyxl.utils import get_column_letter # To run git commands
 WORKBOOK_DIR = "NAV"  # Folder where the Excel workbooks are stored
 
 # Function to list available Excel files in the specified directory
+
 def list_workbooks(directory):
     try:
         # List only .xlsx files in the directory
@@ -24,6 +25,27 @@ def list_workbooks(directory):
         return []
 
 # Function to load NAV data from the selected workbook
+def load_workbook_data(file_path):
+    try:
+        data = pd.read_excel(file_path, sheet_name=0, dtype=str)
+        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+        data = data.dropna(subset=['Date']).sort_values('Date')
+        return data.reset_index(drop=True)
+    except Exception as e:
+        st.error(f"Error loading workbook: {e}")
+        return pd.DataFrame()
+
+def extract_stock_names(data):
+    stock_sections = data[data.iloc[:, 1].str.contains("Stocks", na=False)].index
+    stock_names_list = []
+
+    for idx in stock_sections:
+        stock_names = data.iloc[idx, 2:7].tolist()  # Extract from columns C to G
+        valid_names = [name for name in stock_names if pd.notna(name)]
+        stock_names_list.append(valid_names)
+
+    return stock_names_list
+    
 def load_nav_data(file_path):
     try:
         data = pd.read_excel(file_path, sheet_name=0, usecols="A:J")  # Load columns A-J
@@ -302,19 +324,27 @@ def main():
     file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
 
     nav_data = load_nav_data(file_path)
+    data = load_workbook_data(file_path)
+    if data.empty:
+        st.error("Failed to load data. Please check the workbook format.")
+        return
+
+    # Extract all stock names dynamically
+    stock_names_list = extract_stock_names(data)
+
+    # Display the extracted stock names
+    st.write("### Stock Names Found in the Workbook")
+    for idx, names in enumerate(stock_names_list):
+        st.write(f"Stock Set {idx + 1}: {', '.join(names)}")
+
 
     if not nav_data.empty:
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
         filtered_data = filter_data_by_date(nav_data, selected_range)
        
-        start_date, end_date = filtered_data['Date'].min(), filtered_data['Date'].max()
-        stock_names = get_stock_names(nav_data, start_date, end_date)
-
-    # Display stock names and data table
-        st.write(f"### Stock Names in Selected Period: {', '.join(stock_names)}")
-        display_table(filtered_data, stock_names)
-
+        sst.write(f"### Data for {selected_range}")
+        st.dataframe(filtered_data)
 
         if selected_range not in ["1 Day", "Max"]:
             filtered_data = recalculate_nav(filtered_data)
