@@ -24,22 +24,16 @@ def list_workbooks(directory):
         return []
 
 def load_entire_workbook(file_path):
-    """Load the entire workbook as a DataFrame, preserving all data types."""
+    """Load the entire workbook, preserving all data and structure."""
     try:
-        # Load the first sheet without limiting columns
-        data = pd.read_excel(file_path, sheet_name=0, dtype=str)  # Load everything as string to preserve formatting
-
-        # Ensure 'Date' column is parsed as datetime if it exists
+        data = pd.read_excel(file_path, sheet_name=0, dtype=str)  # Preserve all data as strings
         if 'Date' in data.columns:
             data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-            data = data.dropna(subset=['Date'])  # Remove invalid dates
-            data = data.sort_values('Date').reset_index(drop=True)
-        
+            data = data.dropna(subset=['Date']).sort_values('Date').reset_index(drop=True)
         return data
     except Exception as e:
         st.error(f"Error loading workbook: {e}")
         return pd.DataFrame()
-
 
 # Function to load NAV data from the selected workbook
 def load_nav_data(file_path):
@@ -76,16 +70,18 @@ def filter_data_by_date(data, date_range):
     else:  # Max
         return data
 
-def extract_latest_stock_names(data):
-    """Extract the latest stock names based on the 'Stocks' row."""
-    # Find the last occurrence of 'Stocks' in the data to get the most recent stock names
-    stock_row = data[data.iloc[:, 1].str.contains('Stocks', na=False)].tail(1).index
-    if not stock_row.empty:
-        row_index = stock_row[0]
-        # Extract stock names from columns C to G (assuming they start from 2nd index)
-        stock_names = data.iloc[row_index, 2:7].tolist()
-        return [name for name in stock_names if pd.notna(name)]  # Filter out NaN values
-    return []
+def get_all_stock_names_over_period(data, start_date, end_date):
+    """Collect all stock names from 'Stocks' rows within the selected period."""
+    relevant_stocks = set()  # Use a set to avoid duplicate stock names
+    stock_rows = data[data.iloc[:, 1].str.contains('Stocks', na=False, case=False)]
+
+    for _, row in stock_rows.iterrows():
+        row_date = row['Date']
+        if start_date <= row_date <= end_date:
+            stock_names = row.iloc[2:7].dropna().tolist()  # Get stock names from columns C to G
+            relevant_stocks.update(stock_names)
+
+    return list(relevant_stocks)  # Convert 
 
 
 # Function to recalculate NAV starting from 100
@@ -316,15 +312,18 @@ def main():
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
         filtered_data = filter_data_by_date(nav_data, selected_range)
-        latest_stock_names = extract_latest_stock_names(workbook_data)
-        st.write(f"### Latest Stock Names: {', '.join(latest_stock_names)}")
+        start_date, end_date = filtered_data['Date'].min(), filtered_data['Date'].max()
 
-        if not filtered_data.empty:
-            # Display the filtered data with the same structure as the workbook
-            st.write("### Workbook Data (Filtered by Date Range)")
-            st.dataframe(filtered_data)
-        else:
-            st.warning("No data available for the selected date range.")
+    # Collect all relevant stock names over the selected period
+    relevant_stock_names = get_all_stock_names_over_period(workbook_data, start_date, end_date)
+    st.write(f"### Stock Names in Selected Period: {', '.join(relevant_stock_names)}")
+
+    # Display the filtered workbook data
+    if not filtered_data.empty:
+        st.write("### Workbook Data (Filtered by Date Range)")
+        st.dataframe(filtered_data)
+    else:
+        st.warning("No data available for the selected date range.")
 
     
 
