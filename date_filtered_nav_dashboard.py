@@ -24,12 +24,18 @@ def list_workbooks(directory):
         return []
 
 def load_workbook_data(file_path):
-    """Load the entire workbook as a DataFrame."""
+    """Load the entire workbook as a DataFrame, keeping all columns intact."""
     try:
-        data = pd.read_excel(file_path, sheet_name=0)  # Load entire sheet
-        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')  # Ensure 'Date' is parsed
-        data = data.dropna(subset=['Date']).sort_values('Date')  # Sort by 'Date'
-        return data.reset_index(drop=True)
+        # Load the first sheet of the workbook, retaining all content and formatting.
+        data = pd.read_excel(file_path, sheet_name=0)
+        
+        # Ensure the 'Date' column is parsed correctly as datetime
+        if 'Date' in data.columns:
+            data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+            data = data.dropna(subset=['Date'])  # Remove rows without valid dates
+            data = data.sort_values('Date').reset_index(drop=True)  # Sort by Date
+        
+        return data
     except Exception as e:
         st.error(f"Error loading workbook: {e}")
         return pd.DataFrame()
