@@ -328,10 +328,10 @@ def main():
     
 
     if selected_range not in ["1 Day", "Max"]:
-            filtered_data = recalculate_nav(filtered_data)
-            chart_column = 'Rebased NAV'
+        filtered_data = recalculate_nav(filtered_data)
+        chart_column = 'Rebased NAV'
     else:
-            chart_column = 'NAV'
+        chart_column = 'NAV'
 
         line_chart = alt.Chart(filtered_data).mark_line().encode(
             x='Date:T',
