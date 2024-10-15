@@ -311,7 +311,7 @@ def display_relevant_blocks(relevant_blocks):
     """Displays the relevant stock blocks in Streamlit."""
     for date, stock_names, block_data in relevant_blocks:
         st.write(f"### Stocks on {date.strftime('%Y-%m-%d')}")
-        st.write(f"Stock Names: {', '.join(stock_names)}"
+        st.write(f"Stock Names: {', '.join(stock_names)}")
 
 def main():
     st.title("NAV Data Dashboard")
