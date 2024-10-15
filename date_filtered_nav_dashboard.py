@@ -57,19 +57,20 @@ def filter_data_by_date(data, date_range):
     else:  # Max
         return data
 
-def get_stock_names_over_period(data, start_date, end_date):
-    """Extract stock names dynamically within the date range."""
+def get_stock_names(data, start_date, end_date):
+    """Extract all stock names within the selected date range."""
     stock_names = set()
-    stock_rows = data[data.iloc[:, 1].str.contains('Stocks', na=False, case=False)]
+
+    # Iterate through rows containing "Stocks" within the period
+    stock_rows = data[(data['Date'] >= start_date) & (data['Date'] <= end_date)]
+    stock_rows = stock_rows[stock_rows.iloc[:, 1].str.contains('Stocks', na=False, case=False)]
 
     for _, row in stock_rows.iterrows():
-        row_date = row['Date']
-        if start_date <= row_date <= end_date:
-            names = row.iloc[2:7].dropna().tolist()
-            stock_names.update(names)
+        names = row.iloc[2:7].dropna().tolist()  # Extract stock names from columns C to G
+        stock_names.update(names)
 
     return list(stock_names)
-
+    
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
     initial_nav = filtered_data['NAV'].iloc[0]
@@ -271,6 +272,16 @@ def git_add_commit_push(modified_files):
     except subprocess.CalledProcessError as e:
         print(f"Error during git operation: {e}")
 
+def display_table(filtered_data, stock_names):
+    """Display the data table with dynamically updated stock columns."""
+    # Add missing stock columns with None values if necessary
+    for stock in stock_names:
+        if stock not in filtered_data.columns:
+            filtered_data[stock] = None
+
+    st.write("### Data Table")
+    st.dataframe(filtered_data.reset_index(drop=True))
+
 
 def main():
     st.title("NAV Data Dashboard")
@@ -298,10 +309,11 @@ def main():
         filtered_data = filter_data_by_date(nav_data, selected_range)
         filtered_data['Date'] = filtered_data['Date'].dt.date
         start_date, end_date = filtered_data['Date'].min(), filtered_data['Date'].max()
-        stock_names = get_stock_names_over_period(nav_data, start_date, end_date)
+        stock_names = get_stock_names(nav_data, start_date, end_date)
+
+    # Display stock names and data table
         st.write(f"### Stock Names in Selected Period: {', '.join(stock_names)}")
-        st.write("### Filtered NAV Data")
-        st.dataframe(filtered_data)
+        display_table(filtered_data, stock_names)
 
 
         if selected_range not in ["1 Day", "Max"]:
