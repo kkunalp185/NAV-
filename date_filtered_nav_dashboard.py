@@ -23,17 +23,17 @@ def list_workbooks(directory):
         st.error("Directory not found. Please ensure the specified directory exists.")
         return []
 
-def load_workbook_data(file_path):
-    """Load the entire workbook as a DataFrame, keeping all columns intact."""
+def load_entire_workbook(file_path):
+    """Load the entire workbook as a DataFrame without filtering columns."""
     try:
-        # Load the first sheet of the workbook, retaining all content and formatting.
+        # Load all columns from the first sheet of the workbook
         data = pd.read_excel(file_path, sheet_name=0)
         
-        # Ensure the 'Date' column is parsed correctly as datetime
+        # Ensure the 'Date' column is recognized as datetime
         if 'Date' in data.columns:
             data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-            data = data.dropna(subset=['Date'])  # Remove rows without valid dates
-            data = data.sort_values('Date').reset_index(drop=True)  # Sort by Date
+            data = data.dropna(subset=['Date'])  # Remove rows with invalid dates
+            data = data.sort_values('Date').reset_index(drop=True)  # Sort by date
         
         return data
     except Exception as e:
