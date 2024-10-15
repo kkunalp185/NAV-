@@ -57,6 +57,19 @@ def filter_data_by_date(data, date_range):
     else:  # Max
         return data
 
+def get_stock_names_over_period(data, start_date, end_date):
+    """Extract stock names dynamically within the date range."""
+    stock_names = set()
+    stock_rows = data[data.iloc[:, 1].str.contains('Stocks', na=False, case=False)]
+
+    for _, row in stock_rows.iterrows():
+        row_date = row['Date']
+        if start_date <= row_date <= end_date:
+            names = row.iloc[2:7].dropna().tolist()
+            stock_names.update(names)
+
+    return list(stock_names)
+
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
     initial_nav = filtered_data['NAV'].iloc[0]
@@ -284,6 +297,12 @@ def main():
         selected_range = st.selectbox("Select Date Range", date_ranges)
         filtered_data = filter_data_by_date(nav_data, selected_range)
         filtered_data['Date'] = filtered_data['Date'].dt.date
+        start_date, end_date = filtered_data['Date'].min(), filtered_data['Date'].max()
+        stock_names = get_stock_names_over_period(nav_data, start_date, end_date)
+        st.write(f"### Stock Names in Selected Period: {', '.join(stock_names)}")
+        st.write("### Filtered NAV Data")
+        st.dataframe(filtered_data)
+
 
         if selected_range not in ["1 Day", "Max"]:
             filtered_data = recalculate_nav(filtered_data)
