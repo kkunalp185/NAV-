@@ -343,7 +343,7 @@ def main():
         selected_range = st.selectbox("Select Date Range", date_ranges)
         filtered_data = filter_data_by_date(nav_data, selected_range)
        
-        sst.write(f"### Data for {selected_range}")
+        st.write(f"### Data for {selected_range}")
         st.dataframe(filtered_data)
 
         if selected_range not in ["1 Day", "Max"]:
