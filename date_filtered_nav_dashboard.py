@@ -26,27 +26,41 @@ def list_workbooks(directory):
 
 # Function to load NAV data from the selected workbook
 def load_workbook_data(file_path):
+    """Loads the entire sheet into a DataFrame."""
     try:
         data = pd.read_excel(file_path, sheet_name=0, dtype=str)
         data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-        data = data.dropna(subset=['Date']).sort_values('Date')
-        return data.reset_index(drop=True)
+        data = data.dropna(subset=['Date']).sort_values('Date').reset_index(drop=True)
+        return data
     except Exception as e:
         st.error(f"Error loading workbook: {e}")
         return pd.DataFrame()
 
-def extract_latest_stock_names(data):
-    # Find the last occurrence of the "Stocks" header
-    stock_rows = data[data.iloc[:, 1].str.contains("Stocks", na=False)].index
 
-    if stock_rows.empty:
-        return []  # Return empty list if no "Stocks" header is found
+def extract_stock_blocks(data):
+    """
+    Extracts all 'Stocks' and 'Quantities' blocks from the data,
+    returning a list of tuples (block_date, stock_names, block_data).
+    """
+    stock_blocks = []
+    current_block = None
 
-    # Get the **most recent stock names** from columns C to G
-    latest_row = stock_rows[-1]
-    stock_names = data.iloc[latest_row, 2:7].tolist()
-    return [name for name in stock_names if pd.notna(name)]  # Filter out NaN values
+    for idx, row in data.iterrows():
+        if row[1] == 'Stocks':
+            stock_names = row[2:7].dropna().tolist()
+            block_date = data.loc[idx - 1, 'Date']
+            current_block = {
+                "date": block_date,
+                "stock_names": stock_names,
+                "start_idx": idx
+            }
+        elif row[1] == 'Quantities' and current_block:
+            # Capture the block data from the current block's start index to this index
+            block_data = data.iloc[current_block["start_idx"] : idx + 1]
+            stock_blocks.append((current_block["date"], current_block["stock_names"], block_data))
+            current_block = None  # Reset for the next block
 
+    return stock_blocks
     
 def load_nav_data(file_path):
     try:
@@ -62,6 +76,19 @@ def load_nav_data(file_path):
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
+
+
+def get_relevant_blocks(stock_blocks, start_date, end_date):
+    """
+    Filters stock blocks based on the given date range. 
+    If no block matches, return the latest one.
+    """
+    relevant_blocks = [block for block in stock_blocks if start_date <= block[0] <= end_date]
+
+    if not relevant_blocks:  # If no relevant blocks found, return the latest block
+        relevant_blocks = [max(stock_blocks, key=lambda x: x[0])]
+
+    return relevant_blocks
 
 # Function to filter data based on the selected date range
 def filter_data_by_date(data, date_range):
@@ -81,19 +108,6 @@ def filter_data_by_date(data, date_range):
     else:  # Max
         return data
 
-def get_stock_names(data, start_date, end_date):
-    """Extract all stock names within the selected date range."""
-    stock_names = set()
-
-    # Iterate through rows containing "Stocks" within the period
-    stock_rows = data[(data['Date'] >= start_date) & (data['Date'] <= end_date)]
-    stock_rows = stock_rows[stock_rows.iloc[:, 1].str.contains('Stocks', na=False, case=False)]
-
-    for _, row in stock_rows.iterrows():
-        names = row.iloc[2:7].dropna().tolist()  # Extract stock names from columns C to G
-        stock_names.update(names)
-
-    return list(stock_names)
     
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
@@ -296,15 +310,12 @@ def git_add_commit_push(modified_files):
     except subprocess.CalledProcessError as e:
         print(f"Error during git operation: {e}")
 
-def display_table(filtered_data, stock_names):
-    """Display the data table with dynamically updated stock columns."""
-    # Add missing stock columns with None values if necessary
-    for stock in stock_names:
-        if stock not in filtered_data.columns:
-            filtered_data[stock] = None
-
-    st.write("### Data Table")
-    st.dataframe(filtered_data.reset_index(drop=True))
+def display_relevant_blocks(relevant_blocks):
+    """Displays the relevant stock blocks in Streamlit."""
+    for date, stock_names, block_data in relevant_blocks:
+        st.write(f"### Stocks on {date.strftime('%Y-%m-%d')}")
+        st.write(f"Stock Names: {', '.join(stock_names)}")
+        st.dataframe(block_data.reset_index(drop=True))
 
 
 def main():
@@ -320,31 +331,31 @@ def main():
     selected_workbook = st.selectbox("Select a Workbook", workbooks)
     file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
 
-    # Load workbook data
+    # Load the workbook data
     data = load_workbook_data(file_path)
     if data.empty:
         st.error("Failed to load data. Please check the workbook format.")
         return
 
-    # Extract the latest stock names
-    latest_stock_names = extract_latest_stock_names(data)
-    st.write(f"### Latest Stock Names: {', '.join(latest_stock_names)}")
-
     # Select a date range
     date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
     selected_range = st.selectbox("Select Date Range", date_ranges)
 
-    # Filter data by the selected range
+    # Filter the data by the selected range
     filtered_data = filter_data_by_date(data, selected_range)
 
-    # Add the latest stock names as column headers if they are not in the data
-    for stock_name in latest_stock_names:
-        if stock_name not in filtered_data.columns:
-            filtered_data[stock_name] = None  # Add missing stock columns with None
+    # Determine the start and end dates for stock extraction
+    start_date = filtered_data['Date'].min()
+    end_date = filtered_data['Date'].max()
 
-    # Display the filtered data
-    st.write("### Data Table")
-    st.dataframe(filtered_data.reset_index(drop=True))
+    # Extract all stock blocks from the data
+    stock_blocks = extract_stock_blocks(data)
+
+    # Get the relevant stock blocks for the selected time period
+    relevant_blocks = get_relevant_blocks(stock_blocks, start_date, end_date)
+
+    # Display the relevant stock blocks
+    display_relevant_blocks(relevant_blocks)
 
 if __name__ == "__main__":
     main()
