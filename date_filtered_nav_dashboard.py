@@ -79,12 +79,17 @@ def load_nav_data(file_path):
 def get_relevant_blocks(stock_blocks, start_date, end_date):
     """
     Filters stock blocks based on the given date range.
-    If no block matches, return the latest block.
+    If no block matches the time range, return the latest available block.
     """
+    # Filter stock blocks based on the date range
     relevant_blocks = [block for block in stock_blocks if start_date <= block[0] <= end_date]
 
-    if not relevant_blocks:  # If no relevant blocks found, return the latest block
-        relevant_blocks = [max(stock_blocks, key=lambda x: x[0])]
+    if not relevant_blocks:  # No blocks found in the range
+        if stock_blocks:  # If there are any stock blocks available, return the latest one
+            relevant_blocks = [max(stock_blocks, key=lambda x: x[0])]
+        else:  # No stock blocks at all
+            st.warning("No stock data available for the selected time range.")
+            return []  # Return an empty list to avoid further errors
 
     return relevant_blocks
 # Function to filter data based on the selected date range
