@@ -307,7 +307,7 @@ def main():
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
         filtered_data = filter_data_by_date(nav_data, selected_range)
-        filtered_data['Date'] = filtered_data['Date'].dt.date
+       
         start_date, end_date = filtered_data['Date'].min(), filtered_data['Date'].max()
         stock_names = get_stock_names(nav_data, start_date, end_date)
 
