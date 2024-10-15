@@ -346,8 +346,6 @@ def main():
 
      
 
-    else:
-        st.error("Failed to load data. Please check the workbook format.")
         
 if __name__ == "__main__":
     main()
