@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
 import os
-from datetime import timedelta, datetime
+from datetime import timedelta
 import openpyxl
+from datetime import datetime
 
-# Directory where the workbooks are stored
+# Define the directory where the workbooks are stored
 WORKBOOK_DIR = "NAV"
 
-# Helper: List available workbooks
+# Function to list available Excel files in the specified directory
 def list_workbooks(directory):
     try:
         files = [f for f in os.listdir(directory) if f.endswith('.xlsx')]
@@ -16,54 +17,20 @@ def list_workbooks(directory):
         st.error("Directory not found. Please ensure the specified directory exists.")
         return []
 
-# Helper: Load the workbook into DataFrame
-def load_workbook_data(file_path):
+# Function to load the entire worksheet data
+def load_entire_workbook(file_path):
+    """Load the entire worksheet as a DataFrame without any modifications."""
     try:
-        data = pd.read_excel(file_path, sheet_name=0, dtype=str)  # Load as string for safety
-        data = data.applymap(lambda x: x.strip() if isinstance(x, str) else x)  # Trim spaces
-        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-        data = data.dropna(subset=['Date']).sort_values('Date').reset_index(drop=True)
+        data = pd.read_excel(file_path, sheet_name=0, dtype=str)  # Load everything as string to preserve formatting
+        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')  # Parse 'Date' column if it exists
+        data = data.dropna(subset=['Date'])  # Drop rows without a valid date
+        data = data.sort_values('Date').reset_index(drop=True)  # Sort by 'Date'
         return data
     except Exception as e:
         st.error(f"Error loading workbook: {e}")
         return pd.DataFrame()
 
-# Helper: Extract stock blocks
-def extract_stock_blocks(data):
-    stock_blocks = []
-    current_block = None
-
-    for idx, row in data.iterrows():
-        # Detect 'Stocks' (case-insensitive and trimmed)
-        if str(row[1]).strip().lower() == 'stocks':
-            stock_names = row[2:7].dropna().tolist()  # Extract stock names from columns C-G
-            block_date = data.loc[idx - 1, 'Date']  # Date from the row above
-            st.write(f"Found stock block at index {idx} with date {block_date}.")  # Debug output
-            current_block = {
-                "date": block_date,
-                "stock_names": stock_names,
-                "start_idx": idx
-            }
-
-        # Detect 'Quantities' row
-        elif str(row[1]).strip().lower() == 'quantities' and current_block:
-            block_data = data.iloc[current_block["start_idx"]: idx + 1]  # Extract the block
-            stock_blocks.append((current_block["date"], current_block["stock_names"], block_data))
-            current_block = None  # Reset for the next block
-
-    st.write(f"Total Stock Blocks Found: {len(stock_blocks)}")  # Debug output
-    return stock_blocks
-
-# Helper: Get relevant blocks based on selected time range
-def get_relevant_blocks(stock_blocks, start_date, end_date):
-    relevant_blocks = [block for block in stock_blocks if start_date <= block[0] <= end_date]
-
-    if not relevant_blocks and stock_blocks:
-        relevant_blocks = [max(stock_blocks, key=lambda x: x[0])]  # Latest block
-
-    return relevant_blocks
-
-# Filter data by date range
+# Function to filter data based on the selected date range
 def filter_data_by_date(data, date_range):
     if date_range == "1 Day":
         return data.tail(1)
@@ -78,15 +45,8 @@ def filter_data_by_date(data, date_range):
     elif date_range == "1 Year":
         one_year_ago = data['Date'].max() - timedelta(days=365)
         return data[data['Date'] >= one_year_ago]
-    else:
+    else:  # Max
         return data
-
-# Display relevant blocks
-def display_relevant_blocks(relevant_blocks):
-    for date, stock_names, block_data in relevant_blocks:
-        st.write(f"### Stocks on {date.strftime('%Y-%m-%d')}")
-        st.write(f"Stock Names: {', '.join(stock_names)}")
-        st.dataframe(block_data.reset_index(drop=True))
 
 # Main function
 def main():
@@ -102,34 +62,22 @@ def main():
     selected_workbook = st.selectbox("Select a Workbook", workbooks)
     file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
 
-    # Load workbook data
-    data = load_workbook_data(file_path)
+    # Load the entire worksheet data
+    data = load_entire_workbook(file_path)
     if data.empty:
         st.error("Failed to load data. Please check the workbook format.")
         return
 
-    # Select date range
+    # Select a date range
     date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
     selected_range = st.selectbox("Select Date Range", date_ranges)
 
-    # Filter data by date range
+    # Filter the data by the selected date range
     filtered_data = filter_data_by_date(data, selected_range)
-    start_date, end_date = filtered_data['Date'].min(), filtered_data['Date'].max()
 
-    # Extract stock blocks
-    stock_blocks = extract_stock_blocks(data)
-
-    if not stock_blocks:
-        st.warning("No stock blocks available in the workbook.")
-        return
-
-    # Get relevant stock blocks
-    relevant_blocks = get_relevant_blocks(stock_blocks, start_date, end_date)
-
-    if not relevant_blocks:
-        st.warning("No matching stock blocks found for the selected time range.")
-    else:
-        display_relevant_blocks(relevant_blocks)
+    # Display the filtered data in a table
+    st.write("### Data Table")
+    st.dataframe(filtered_data)
 
 if __name__ == "__main__":
     main()
