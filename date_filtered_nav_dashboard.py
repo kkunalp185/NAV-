@@ -63,6 +63,23 @@ def filter_data_by_date(data, date_range):
     else:  # Max
         return data
 
+def categorize_data_by_stock_blocks(data):
+    stock_blocks = []
+    current_block = None
+    for idx, row in data.iterrows():
+        if isinstance(row['Unnamed: 1'], str) and row['Unnamed: 1'] == 'Stocks':  # Detect 'Stocks' row
+            if current_block:
+                stock_blocks.append(current_block)  # Save previous block
+            stock_names = row[2:7].tolist()  # Get stock names from columns C to G
+            start_date = data.loc[idx + 2, 'Date']  # Start date is 2 rows down
+            current_block = {'start_date': start_date, 'end_date': None, 'stock_names': stock_names, 'data': []}
+        elif current_block and pd.notna(row['Date']):  # Add valid data rows to current block
+            current_block['data'].append(row)
+    
+    if current_block:
+        stock_blocks.append(current_block)  # Save the last block
+    return stock_blocks
+
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
     initial_nav = filtered_data['NAV'].iloc[0]
@@ -273,25 +290,33 @@ def main():
         st.error("No Excel workbooks found in the specified directory.")
         return
 
-    # Allow the user to select a workbook
+    # Display the data for a specific workbook (example: the first one)
     selected_workbook = st.selectbox("Select a workbook", workbooks)
     
     file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
 
-    # Load the full data from the selected workbook
-    full_data = load_full_data(file_path)
+    nav_data = load_nav_data(file_path)
 
-    if not full_data.empty:
-        # Allow the user to select a date range
+    if not nav_data.empty:
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
+        filtered_data = filter_data_by_date(nav_data, selected_range)
+        
+        # Categorize data into stock blocks
+        stock_blocks = categorize_data_by_stock_blocks(nav_data)
 
-        # Filter the data by the selected date range
-        filtered_data = filter_data_by_date(full_data, selected_range)
+        # Rename stock columns as Stock1, Stock2, etc.
+        for block in stock_blocks:
+            if block['data']:
+                block_df = pd.DataFrame(block['data'])
+                block_df.columns = ['Date', 'Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']
+                block['data'] = block_df
 
-        # Display the filtered data without altering column names
-        st.write("### Full Data Table")
-        st.dataframe(filtered_data.reset_index(drop=True))  # Display the entire data table
+        # Filter and display the data based on date ranges
+        st.write(f"### Displaying data from {selected_workbook}")
+        for block in stock_blocks:
+            st.write(f"### Block from {block['start_date']} to {block['end_date']}")
+            st.dataframe(pd.concat([pd.DataFrame(block['data'])], ignore_index=True))
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
