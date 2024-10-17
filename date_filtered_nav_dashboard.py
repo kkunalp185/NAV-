@@ -303,34 +303,35 @@ def main():
             workbook = openpyxl.load_workbook(file_path)
             ws = workbook.active  # Assuming the data is in the active sheet
 
-            # Get stock names from the worksheet dynamically as they change
             stock_names = []
-            quantities_row_detected = False  # Used to track when quantities are detected
+            filtered_data_list = []  # List to store sections of filtered data dynamically updated
 
             for row in range(1, ws.max_row + 1):
                 cell_value = ws.cell(row=row, column=2).value
                 if cell_value == "Stocks":
-                    # Found new stock names, extract them
+                    # New stock names detected
                     stock_names = [ws.cell(row=row, column=col).value for col in range(3, 8)]
-                    quantities_row_detected = True  # Flag that quantities will follow in the next row
-                elif quantities_row_detected:
-                    # Skip the quantities row and process the data
-                    quantities_row_detected = False
-
-                    # Rename columns in filtered_data to match the stock names dynamically
                     stock_columns = {f"Unnamed: {i+2}": stock_names[i] for i in range(len(stock_names))}
-                    filtered_data.rename(columns=stock_columns, inplace=True)
+
+                    # Apply the stock names to the data
+                    temp_data = filtered_data.copy()  # Make a temporary copy of filtered data
+                    temp_data.rename(columns=stock_columns, inplace=True)
+
+                    filtered_data_list.append(temp_data)  # Append the updated section of data
+
+            # Concatenate all sections of filtered data
+            final_filtered_data = pd.concat(filtered_data_list, ignore_index=True)
 
             # Remove unnecessary columns before displaying
-            if "Unnamed: 8" in filtered_data.columns:
-                filtered_data = filtered_data.rename(columns={"Unnamed: 8": "Returns"})
+            if "Unnamed: 8" in final_filtered_data.columns:
+                final_filtered_data = final_filtered_data.rename(columns={"Unnamed: 8": "Returns"})
 
             # Drop the "Stocks" column if it exists (from column B)
-            filtered_data = filtered_data.drop(columns=["Stocks"], errors="ignore")
+            final_filtered_data = final_filtered_data.drop(columns=["Stocks"], errors="ignore")
 
             # Display the updated filtered data
             st.write("### Data Table")
-            st.dataframe(filtered_data.reset_index(drop=True))
+            st.dataframe(final_filtered_data.reset_index(drop=True))
 
         except Exception as e:
             st.error(f"Error loading workbook to extract stock names: {e}")
@@ -341,4 +342,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
