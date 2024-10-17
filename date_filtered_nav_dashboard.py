@@ -252,7 +252,7 @@ def git_add_commit_push(modified_files):
         print(f"Error during git operation: {e}")
 
 
-ef main():
+def main():
     st.title("NAV Data Dashboard")
 
     # Automatically modify and update all workbooks
