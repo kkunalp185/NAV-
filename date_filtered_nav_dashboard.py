@@ -100,6 +100,20 @@ def process_excel_data(data):
     # Create a combined DataFrame to store all the blocks
     combined_data = pd.DataFrame()
 
+    # Process blocks of data and dynamically set column headers as stock names
+    for block in stock_blocks:
+        block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
+        stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
+
+        # Replace "Stock1", "Stock2", etc. with actual stock names for this block
+        column_mapping = {f'Stock{i + 1}': stock_name for i, stock_name in enumerate(block['stock_names'])}
+        block_data.columns = [column_mapping.get(col, col) for col in block_data.columns]
+
+        # Append to the combined DataFrame
+        combined_data = pd.concat([combined_data, block_data], ignore_index=True)
+
+    return combined_data
+
     # Rename stock columns to Stock1, Stock2, etc. and process blocks of data
     for block in stock_blocks:
         block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
@@ -320,7 +334,6 @@ def git_add_commit_push(modified_files):
 
     except subprocess.CalledProcessError as e:
         print(f"Error during git operation: {e}")
-        
 def main():
     st.title("NAV Data Dashboard")
 
@@ -353,7 +366,7 @@ def main():
         # Filter the combined data by the selected date range
         filtered_data = filter_data_by_date(combined_data, selected_range)
 
-        # Display the combined filtered data in a single table
+        # Display the combined filtered data in a single table with dynamic headers
         st.write("### Combined Stock Data Table")
         st.dataframe(filtered_data.reset_index(drop=True))
 
