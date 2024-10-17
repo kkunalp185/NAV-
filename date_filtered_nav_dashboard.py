@@ -252,8 +252,11 @@ def git_add_commit_push(modified_files):
         print(f"Error during git operation: {e}")
 
 
-def main():
+ef main():
     st.title("NAV Data Dashboard")
+
+    # Automatically modify and update all workbooks
+    modify_all_workbooks_and_push_to_github()
 
     # List available workbooks in the directory
     workbooks = list_workbooks(WORKBOOK_DIR)
@@ -264,71 +267,66 @@ def main():
 
     # Display the data for a specific workbook (example: the first one)
     selected_workbook = st.selectbox("Select a workbook", workbooks)
-    
+
     file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
 
     nav_data = load_nav_data(file_path)
 
     if not nav_data.empty:
         # Ensure the 'Date' column is in datetime format
-        nav_data['Date'] = pd.to_datetime(nav_data['Date'], errors='coerce')  # Convert to datetime, ignore errors
+        nav_data["Date"] = pd.to_datetime(nav_data["Date"], errors="coerce")  # Convert to datetime, ignore errors
 
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
         filtered_data = filter_data_by_date(nav_data, selected_range)
 
         # Now, safely apply the .dt accessor after ensuring 'Date' is datetime
-        if pd.api.types.is_datetime64_any_dtype(filtered_data['Date']):
-            filtered_data['Date'] = filtered_data['Date'].dt.date  # Convert datetime to date if applicable
+        if pd.api.types.is_datetime64_any_dtype(filtered_data["Date"]):
+            filtered_data["Date"] = filtered_data["Date"].dt.date  # Convert datetime to date if applicable
 
         if selected_range not in ["1 Day", "Max"]:
             filtered_data = recalculate_nav(filtered_data)
-            chart_column = 'Rebased NAV'
+            chart_column = "Rebased NAV"
         else:
-            chart_column = 'NAV'
+            chart_column = "NAV"
 
         line_chart = alt.Chart(filtered_data).mark_line().encode(
-            x='Date:T',
-            y=alt.Y(f'{chart_column}:Q', scale=alt.Scale(domain=[80, filtered_data[chart_column].max()])),
-            tooltip=['Date:T', f'{chart_column}:Q']
-        ).properties(
-            width=700,
-            height=400
-        )
+            x="Date:T",
+            y=alt.Y(f"{chart_column}:Q", scale=alt.Scale(domain=[80, filtered_data[chart_column].max()])),
+            tooltip=["Date:T", f"{chart_column}:Q"],
+        ).properties(width=700, height=400)
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
 
-        # Load the workbook to get current stock names
+        # Load the workbook to get current stock names and handle stock name changes dynamically
         try:
             workbook = openpyxl.load_workbook(file_path)
             ws = workbook.active  # Assuming the data is in the active sheet
-            
-            # Get stock names from the worksheet (assumes stocks are listed in columns C to G in a row named "Stocks")
-            stocks_row = None
+
+            # Get stock names from the worksheet dynamically as they change
+            stock_names = []
+            quantities_row_detected = False  # Used to track when quantities are detected
+
             for row in range(1, ws.max_row + 1):
                 cell_value = ws.cell(row=row, column=2).value
                 if cell_value == "Stocks":
-                    stocks_row = row
-                    
+                    # Found new stock names, extract them
+                    stock_names = [ws.cell(row=row, column=col).value for col in range(3, 8)]
+                    quantities_row_detected = True  # Flag that quantities will follow in the next row
+                elif quantities_row_detected:
+                    # Skip the quantities row and process the data
+                    quantities_row_detected = False
 
-            if stocks_row is not None:
-                stock_names = []
-                for col in range(3, 8):  # Columns C to G
-                    stock_name = ws.cell(row=stocks_row, column=col).value
-                    if stock_name and isinstance(stock_name, str):
-                        stock_names.append(stock_name)
-                
-                # Rename columns in filtered_data to match the stock names
-                stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
-                filtered_data.rename(columns=stock_columns, inplace=True)
-
+                    # Rename columns in filtered_data to match the stock names dynamically
+                    stock_columns = {f"Unnamed: {i+2}": stock_names[i] for i in range(len(stock_names))}
+                    filtered_data.rename(columns=stock_columns, inplace=True)
 
             # Remove unnecessary columns before displaying
-            if 'Unnamed: 8' in filtered_data.columns:
-                filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
+            if "Unnamed: 8" in filtered_data.columns:
+                filtered_data = filtered_data.rename(columns={"Unnamed: 8": "Returns"})
 
             # Drop the "Stocks" column if it exists (from column B)
-            filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')
+            filtered_data = filtered_data.drop(columns=["Stocks"], errors="ignore")
 
             # Display the updated filtered data
             st.write("### Data Table")
@@ -339,6 +337,8 @@ def main():
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
-        
+
+
 if __name__ == "__main__":
     main()
+
