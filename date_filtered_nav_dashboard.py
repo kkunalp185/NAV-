@@ -63,21 +63,41 @@ def filter_data_by_date(data, date_range):
     else:  # Max
         return data
 
-def categorize_data_by_stock_blocks(data):
+def process_excel_data(data):
     stock_blocks = []
     current_block = None
+    block_start_idx = None
+
+    # Iterate through the rows of the DataFrame
     for idx, row in data.iterrows():
-        if isinstance(row['Unnamed: 1'], str) and row['Unnamed: 1'] == 'Stocks':  # Detect 'Stocks' row
+        if isinstance(row['Unnamed: 1'], str) and row['Unnamed: 1'] == 'Stocks':  # Detect when stock names change
             if current_block:
-                stock_blocks.append(current_block)  # Save previous block
+                current_block['end_idx'] = idx - 1  # End the current block before the next 'Stocks' row
+                stock_blocks.append(current_block)  # Save the completed block
+
+            # Create a new block
             stock_names = row[2:7].tolist()  # Get stock names from columns C to G
-            start_date = data.loc[idx + 2, 'Date']  # Start date is 2 rows down
-            current_block = {'start_date': start_date, 'end_date': None, 'stock_names': stock_names, 'data': []}
-        elif current_block and pd.notna(row['Date']):  # Add valid data rows to current block
-            current_block['data'].append(row)
+            current_block = {'stock_names': stock_names, 'start_idx': idx + 2, 'end_idx': None}
+            block_start_idx = idx + 2  # Data starts 2 rows down after 'Stocks'
     
     if current_block:
-        stock_blocks.append(current_block)  # Save the last block
+        current_block['end_idx'] = len(data) - 1  # Handle the last block until the end of the dataset
+        stock_blocks.append(current_block)
+
+    # Rename stock columns to Stock1, Stock2, etc. and process blocks of data
+    for block in stock_blocks:
+        block_data = data.iloc[block['start_idx']:block['end_idx'] + 1]
+        stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
+
+        # Map original stock names to Stock1, Stock2, etc.
+        column_mapping = {data.columns[i]: stock_columns[i - 2] for i in range(2, 7)}
+
+        # Rename columns in the block data
+        block_data = block_data.rename(columns=column_mapping)
+
+        # Store processed data in the block
+        block['data'] = block_data
+
     return stock_blocks
 
 # Function to recalculate NAV starting from 100
@@ -298,32 +318,24 @@ def main():
     nav_data = load_nav_data(file_path)
 
     if not nav_data.empty:
+        # Process the Excel data and detect stock name changes (split into blocks)
+        stock_blocks = process_excel_data(nav_data)
+
+        # Allow the user to select a date range
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
-        filtered_data = filter_data_by_date(nav_data, selected_range)
-        
-        # Categorize data into stock blocks
-        stock_blocks = categorize_data_by_stock_blocks(nav_data)
 
-        # Rename stock columns as Stock1, Stock2, etc.
+        # Filter each block by the selected date range and display it
         for block in stock_blocks:
-            if block['data']:
-                block_df = pd.DataFrame(block['data'])
-                # Ensure that stock name columns are strings and numeric columns are floats
-                block_df = block_df.convert_dtypes()  # Automatically convert to appropriate types
-                block_df.columns = ['Date', 'Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']
-                block['data'] = block_df
+            block_data = filter_data_by_date(block['data'], selected_range)
 
-        # Filter and display the data based on date ranges
-        st.write(f"### Displaying data from {selected_workbook}")
-        for block in stock_blocks:
-            st.write(f"### Block from {block['start_date']} to {block['end_date']}")
-            st.dataframe(pd.concat([pd.DataFrame(block['data'])], ignore_index=True))
+            # Display the stock block's data
+            st.write(f"### Stock Data for {block['stock_names']}")
+            st.dataframe(block_data.reset_index(drop=True))  # Display the filtered data for each block
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
 
 if __name__ == "__main__":
     main()
-
 
