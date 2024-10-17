@@ -23,6 +23,18 @@ def list_workbooks(directory):
         st.error("Directory not found. Please ensure the specified directory exists.")
         return []
 
+def load_full_data(file_path):
+    try:
+        # Load the entire workbook (without limiting columns to A:J)
+        data = pd.read_excel(file_path, sheet_name=0)  # Load the entire sheet without filtering columns
+        # Ensure the 'Date' column is properly converted to datetime
+        if 'Date' in data.columns:
+            data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+        return data
+    except Exception as e:
+        st.error(f"Error reading Excel file: {e}")
+        return pd.DataFrame()
+
 # Function to load NAV data from the selected workbook
 def load_nav_data(file_path):
     try:
@@ -251,12 +263,8 @@ def git_add_commit_push(modified_files):
     except subprocess.CalledProcessError as e:
         print(f"Error during git operation: {e}")
 
-
 def main():
     st.title("NAV Data Dashboard")
-
-    # Automatically modify and update all workbooks
-    modify_all_workbooks_and_push_to_github()
 
     # List available workbooks in the directory
     workbooks = list_workbooks(WORKBOOK_DIR)
@@ -265,80 +273,28 @@ def main():
         st.error("No Excel workbooks found in the specified directory.")
         return
 
-    # Display the data for a specific workbook (example: the first one)
+    # Allow the user to select a workbook
     selected_workbook = st.selectbox("Select a workbook", workbooks)
-
+    
     file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
 
-    nav_data = load_nav_data(file_path)
+    # Load the full data from the selected workbook
+    full_data = load_full_data(file_path)
 
-    if not nav_data.empty:
-        # Ensure the 'Date' column is in datetime format
-        nav_data["Date"] = pd.to_datetime(nav_data["Date"], errors="coerce")  # Convert to datetime, ignore errors
-
+    if not full_data.empty:
+        # Allow the user to select a date range
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
-        filtered_data = filter_data_by_date(nav_data, selected_range)
 
-        # Now, safely apply the .dt accessor after ensuring 'Date' is datetime
-        if pd.api.types.is_datetime64_any_dtype(filtered_data["Date"]):
-            filtered_data["Date"] = filtered_data["Date"].dt.date  # Convert datetime to date if applicable
+        # Filter the data by the selected date range
+        filtered_data = filter_data_by_date(full_data, selected_range)
 
-        if selected_range not in ["1 Day", "Max"]:
-            filtered_data = recalculate_nav(filtered_data)
-            chart_column = "Rebased NAV"
-        else:
-            chart_column = "NAV"
-
-        line_chart = alt.Chart(filtered_data).mark_line().encode(
-            x="Date:T",
-            y=alt.Y(f"{chart_column}:Q", scale=alt.Scale(domain=[80, filtered_data[chart_column].max()])),
-            tooltip=["Date:T", f"{chart_column}:Q"],
-        ).properties(width=700, height=400)
-        st.write(f"### Displaying data from {selected_workbook}")
-        st.altair_chart(line_chart, use_container_width=True)
-
-        # Load the workbook to get current stock names and handle stock name changes dynamically
-        try:
-            workbook = openpyxl.load_workbook(file_path)
-            ws = workbook.active  # Assuming the data is in the active sheet
-
-            stock_names = []
-            filtered_data_list = []  # List to store sections of filtered data dynamically updated
-
-            for row in range(1, ws.max_row + 1):
-                cell_value = ws.cell(row=row, column=2).value
-                if cell_value == "Stocks":
-                    # New stock names detected
-                    stock_names = [ws.cell(row=row, column=col).value for col in range(3, 8)]
-                    stock_columns = {f"Unnamed: {i+2}": stock_names[i] for i in range(len(stock_names))}
-
-                    # Apply the stock names to the data
-                    temp_data = filtered_data.copy()  # Make a temporary copy of filtered data
-                    temp_data.rename(columns=stock_columns, inplace=True)
-
-                    filtered_data_list.append(temp_data)  # Append the updated section of data
-
-            # Concatenate all sections of filtered data
-            final_filtered_data = pd.concat(filtered_data_list, ignore_index=True)
-
-            # Remove unnecessary columns before displaying
-            if "Unnamed: 8" in final_filtered_data.columns:
-                final_filtered_data = final_filtered_data.rename(columns={"Unnamed: 8": "Returns"})
-
-            # Drop the "Stocks" column if it exists (from column B)
-            final_filtered_data = final_filtered_data.drop(columns=["Stocks"], errors="ignore")
-
-            # Display the updated filtered data
-            st.write("### Data Table")
-            st.dataframe(final_filtered_data.reset_index(drop=True))
-
-        except Exception as e:
-            st.error(f"Error loading workbook to extract stock names: {e}")
+        # Display the filtered data without altering column names
+        st.write("### Full Data Table")
+        st.dataframe(filtered_data.reset_index(drop=True))  # Display the entire data table
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
-
 
 if __name__ == "__main__":
     main()
