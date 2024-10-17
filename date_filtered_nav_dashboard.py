@@ -97,9 +97,12 @@ def process_excel_data(data):
         current_block['end_idx'] = len(data) - 1  # Handle the last block until the end of the dataset
         stock_blocks.append(current_block)
 
+    # Create a combined DataFrame to store all the blocks
+    combined_data = pd.DataFrame()
+
     # Rename stock columns to Stock1, Stock2, etc. and process blocks of data
     for block in stock_blocks:
-        block_data = data.iloc[block['start_idx']:block['end_idx'] + 1]
+        block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
         stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
 
         # Map original stock names to Stock1, Stock2, etc.
@@ -108,10 +111,14 @@ def process_excel_data(data):
         # Rename columns in the block data
         block_data = block_data.rename(columns=column_mapping)
 
-        # Store processed data in the block
-        block['data'] = block_data
+        # Add a column to indicate the stock names for the block
+        for i, stock_name in enumerate(block['stock_names']):
+            block_data[f'Stock{i + 1}_Name'] = stock_name
 
-    return stock_blocks
+        # Append to the combined DataFrame
+        combined_data = pd.concat([combined_data, block_data], ignore_index=True)
+
+    return combined_data
 
 
 # Function to recalculate NAV starting from 100
@@ -332,24 +339,23 @@ def main():
     nav_data = load_nav_data(file_path)
 
     if not nav_data.empty:
-        # Process the Excel data and detect stock name changes (split into blocks)
-        stock_blocks = process_excel_data(nav_data)
+        # Process the Excel data and detect stock name changes (combine into a single table)
+        combined_data = process_excel_data(nav_data)
 
-        if not stock_blocks:
-            st.error("No valid stock blocks found in the workbook.")
+        if combined_data.empty:
+            st.error("No valid stock data found in the workbook.")
             return
 
         # Allow the user to select a date range
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
 
-        # Filter each block by the selected date range and display it
-        for block in stock_blocks:
-            block_data = filter_data_by_date(block['data'], selected_range)
+        # Filter the combined data by the selected date range
+        filtered_data = filter_data_by_date(combined_data, selected_range)
 
-            # Display the stock block's data
-            st.write(f"### Stock Data for {block['stock_names']}")
-            st.dataframe(block_data.reset_index(drop=True))  # Display the filtered data for each block
+        # Display the combined filtered data in a single table
+        st.write("### Combined Stock Data Table")
+        st.dataframe(filtered_data.reset_index(drop=True))
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
