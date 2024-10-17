@@ -38,12 +38,17 @@ def load_full_data(file_path):
 # Function to load NAV data from the selected workbook
 def load_nav_data(file_path):
     try:
-        # Load the extracted workbook data
-        data = pd.read_excel(file_path)  # Using the previously extracted data
+        data = pd.read_excel(file_path, sheet_name=0)  # Load full sheet data without limiting columns
+        # Ensure 'Date' column is datetime; coerce errors to handle non-date values
+        if 'Date' in data.columns:
+            data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+        else:
+            st.error("Date column not found in the dataset.")
         return data
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
+
 
 # Function to filter data based on the selected date range
 def filter_data_by_date(data, date_range):
