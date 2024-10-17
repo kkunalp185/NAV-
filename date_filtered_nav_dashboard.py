@@ -309,7 +309,7 @@ def git_add_commit_push(modified_files):
     except subprocess.CalledProcessError as e:
         print(f"Error during git operation: {e}")
         
-ef main():
+def main():
     st.title("NAV Data Dashboard")
 
     # List available workbooks in the directory
