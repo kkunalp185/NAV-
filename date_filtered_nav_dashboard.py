@@ -309,7 +309,7 @@ def main():
             
             # Get stock names from the worksheet (assumes stocks are listed in columns C to G in a row named "Stocks")
             stocks_row = None
-            for row in range(1, ws.max_row + 1):
+            for row in range(ws.max_row, ws.max_row - 1):
                 cell_value = ws.cell(row=row, column=2).value
                 if cell_value == "Stocks":
                     stocks_row = row
