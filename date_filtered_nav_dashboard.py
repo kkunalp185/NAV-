@@ -100,14 +100,17 @@ def process_excel_data(data):
     # Create a combined DataFrame to store all the blocks
     combined_data = pd.DataFrame()
 
-    # Process blocks of data and dynamically set column headers as stock names
+    # Process blocks of data and insert stock names as the first row in the table
     for block in stock_blocks:
         block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
         stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
 
-        # Replace "Stock1", "Stock2", etc. with actual stock names for this block
-        column_mapping = {f'Stock{i + 1}': stock_name for i, stock_name in enumerate(block['stock_names'])}
-        block_data.columns = [column_mapping.get(col, col) for col in block_data.columns]
+        # Create a row with the stock names and insert it at the top of the block
+        stock_name_row = pd.DataFrame([block['stock_names']], columns=stock_columns)
+        
+        # Add the stock names as the first row in the block's data
+        block_data.columns = stock_columns + list(block_data.columns[len(stock_columns):])  # Adjust other columns
+        block_data = pd.concat([stock_name_row, block_data], ignore_index=True)
 
         # Append to the combined DataFrame
         combined_data = pd.concat([combined_data, block_data], ignore_index=True)
@@ -366,7 +369,7 @@ def main():
         # Filter the combined data by the selected date range
         filtered_data = filter_data_by_date(combined_data, selected_range)
 
-        # Display the combined filtered data in a single table with dynamic headers
+        # Display the combined filtered data in a single table with stock names as the first row
         st.write("### Combined Stock Data Table")
         st.dataframe(filtered_data.reset_index(drop=True))
 
