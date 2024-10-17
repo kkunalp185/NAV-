@@ -26,14 +26,8 @@ def list_workbooks(directory):
 # Function to load NAV data from the selected workbook
 def load_nav_data(file_path):
     try:
-        data = pd.read_excel(file_path, sheet_name=0, usecols="A:J")  # Load columns A-J
-        if 'NAV' not in data.columns or 'Date' not in data.columns:
-            st.error("NAV or Date column not found in the selected workbook.")
-            return pd.DataFrame()
-        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-        data = data.sort_values(by='Date')
-        data = data.dropna(subset=['Date', 'NAV'])
-        data = data.drop_duplicates(subset='Date', keep='first')
+        # Load the extracted workbook data
+        data = pd.read_excel(file_path)  # Using the previously extracted data
         return data
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
@@ -236,7 +230,6 @@ def modify_workbook(filename):
 # Function to execute git commands to add, commit, and push changes
 def git_add_commit_push(modified_files):
     try:
-        # Git add each modified file
         for filename in modified_files:
             subprocess.run(["git", "add", f"{WORKBOOK_DIR}/{filename}"], check=True)
 
@@ -309,7 +302,7 @@ def main():
             
             # Get stock names from the worksheet (assumes stocks are listed in columns C to G in a row named "Stocks")
             stocks_row = None
-            for row in range(ws.max_row, ws.max_row - 1):
+            for row in range(1, ws.max_row + 1):
                 cell_value = ws.cell(row=row, column=2).value
                 if cell_value == "Stocks":
                     stocks_row = row
