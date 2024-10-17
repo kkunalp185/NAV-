@@ -62,15 +62,24 @@ def filter_data_by_date(data, date_range):
         return data[data['Date'] >= one_year_ago]
     else:  # Max
         return data
-
 def process_excel_data(data):
     stock_blocks = []
     current_block = None
-    block_start_idx = None
+
+    # Dynamically find the column that contains 'Stocks'
+    stock_column = None
+    for col in data.columns:
+        if data[col].astype(str).str.contains('Stocks').any():
+            stock_column = col
+            break
+
+    if not stock_column:
+        st.error("No 'Stocks' column found in the workbook.")
+        return []
 
     # Iterate through the rows of the DataFrame
     for idx, row in data.iterrows():
-        if isinstance(row['Unnamed: 1'], str) and row['Unnamed: 1'] == 'Stocks':  # Detect when stock names change
+        if isinstance(row[stock_column], str) and row[stock_column] == 'Stocks':  # Detect when stock names change
             if current_block:
                 current_block['end_idx'] = idx - 1  # End the current block before the next 'Stocks' row
                 stock_blocks.append(current_block)  # Save the completed block
@@ -78,8 +87,7 @@ def process_excel_data(data):
             # Create a new block
             stock_names = row[2:7].tolist()  # Get stock names from columns C to G
             current_block = {'stock_names': stock_names, 'start_idx': idx + 2, 'end_idx': None}
-            block_start_idx = idx + 2  # Data starts 2 rows down after 'Stocks'
-    
+
     if current_block:
         current_block['end_idx'] = len(data) - 1  # Handle the last block until the end of the dataset
         stock_blocks.append(current_block)
@@ -99,6 +107,7 @@ def process_excel_data(data):
         block['data'] = block_data
 
     return stock_blocks
+
 
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
@@ -300,7 +309,7 @@ def git_add_commit_push(modified_files):
     except subprocess.CalledProcessError as e:
         print(f"Error during git operation: {e}")
         
-def main():
+ef main():
     st.title("NAV Data Dashboard")
 
     # List available workbooks in the directory
@@ -321,6 +330,10 @@ def main():
         # Process the Excel data and detect stock name changes (split into blocks)
         stock_blocks = process_excel_data(nav_data)
 
+        if not stock_blocks:
+            st.error("No valid stock blocks found in the workbook.")
+            return
+
         # Allow the user to select a date range
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
@@ -338,4 +351,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
