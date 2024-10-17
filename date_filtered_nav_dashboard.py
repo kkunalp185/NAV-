@@ -279,7 +279,7 @@ def git_add_commit_push(modified_files):
 
     except subprocess.CalledProcessError as e:
         print(f"Error during git operation: {e}")
-
+        
 def main():
     st.title("NAV Data Dashboard")
 
@@ -309,6 +309,8 @@ def main():
         for block in stock_blocks:
             if block['data']:
                 block_df = pd.DataFrame(block['data'])
+                # Ensure that stock name columns are strings and numeric columns are floats
+                block_df = block_df.convert_dtypes()  # Automatically convert to appropriate types
                 block_df.columns = ['Date', 'Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']
                 block['data'] = block_df
 
