@@ -317,7 +317,6 @@ def git_add_commit_push(modified_files):
 
     except subprocess.CalledProcessError as e:
         print(f"Error during git operation: {e}")
-        
 def main():
     st.title("NAV Data Dashboard")
 
