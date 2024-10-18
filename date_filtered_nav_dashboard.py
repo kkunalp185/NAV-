@@ -21,16 +21,17 @@ def list_workbooks(directory):
 # Function to load NAV data from the selected workbook and handle date parsing
 def load_nav_data(file_path):
     try:
-        data = pd.read_excel(file_path, sheet_name=0)  # Load the full sheet data
-        # Attempt to convert the 'Date' column to datetime, handling errors
+        data = pd.read_excel(file_path, sheet_name=0)  # Load full sheet data without limiting columns
+        # Ensure 'Date' column is datetime; coerce errors to handle non-date values
         if 'Date' in data.columns:
-            data['Date'] = pd.to_datetime(data['Date'], errors='coerce')  # Convert dates with error handling
+            data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
         else:
             st.error("Date column not found in the dataset.")
         return data
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
+
 # Function to filter data based on the selected date range
 def filter_data_by_date(data, date_range):
     if 'Date' not in data.columns:
@@ -39,7 +40,6 @@ def filter_data_by_date(data, date_range):
 
     # Ensure all 'Date' values are valid datetime objects
     data = data.dropna(subset=['Date'])
-    data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
 
     if date_range == "1 Day":
         return data.tail(1)
@@ -57,29 +57,32 @@ def filter_data_by_date(data, date_range):
     else:  # Max
         return data
 
-# Function to process the Excel data and identify stock blocks dynamically
+# Function to process the Excel data and identify stock name changes dynamically
 def process_excel_data(data):
     stock_blocks = []
     current_block = None
 
-    # Iterate through the rows to detect stock and quantity rows
+    # Dynamically find the column that contains 'Stocks'
+    stock_column = None
+    for col in data.columns:
+        if data[col].astype(str).str.contains('Stocks').any():
+            stock_column = col
+            break
+
+    if not stock_column:
+        st.error("No 'Stocks' column found in the workbook.")
+        return []
+
+    # Iterate through the rows of the DataFrame
     for idx, row in data.iterrows():
-        if isinstance(row['Stocks'], str) and row['Stocks'] == 'Stocks':  # Detect the stock row
+        if isinstance(row[stock_column], str) and row[stock_column] == 'Stocks':  # Detect when stock names change
             if current_block:
                 current_block['end_idx'] = idx - 1  # End the current block before the next 'Stocks' row
                 stock_blocks.append(current_block)  # Save the completed block
 
-            # Create a new block for the current stock configuration
+            # Create a new block
             stock_names = row[2:7].tolist()  # Get stock names from columns C to G
-            quantities_row = data.iloc[idx + 1]  # The next row should be the quantities row
-            quantities = quantities_row[2:7].tolist()  # Get quantities from columns C to G
-
-            current_block = {
-                'stock_names': stock_names,
-                'quantities': quantities,
-                'start_idx': idx + 2,  # Data starts from two rows after the stock names
-                'end_idx': None
-            }
+            current_block = {'stock_names': stock_names, 'start_idx': idx + 2, 'end_idx': None}
 
     if current_block:
         current_block['end_idx'] = len(data) - 1  # Handle the last block until the end of the dataset
@@ -88,35 +91,20 @@ def process_excel_data(data):
     # Create a combined DataFrame to store all the blocks
     combined_data = pd.DataFrame()
 
-    # Process and rename columns for each stock block
+    # Rename stock columns to Stock1, Stock2, etc. and process blocks of data
     for block in stock_blocks:
         block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
-
-        # Rename stock columns to Stock1, Stock2, etc.
         stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
+
+        # Map original stock names to Stock1, Stock2, etc.
         column_mapping = {data.columns[i]: stock_columns[i - 2] for i in range(2, 7)}
+
+        # Rename columns in the block data
         block_data = block_data.rename(columns=column_mapping)
 
-        # Create a row with stock names and quantities
-        stock_names_row = pd.DataFrame({
-            'Stock1': [block['stock_names'][0]],
-            'Stock2': [block['stock_names'][1]],
-            'Stock3': [block['stock_names'][2]],
-            'Stock4': [block['stock_names'][3]],
-            'Stock5': [block['stock_names'][4]],
-            'Date': [None], 'Basket Value': [None], 'Returns': [None], 'NAV': [None]
-        })
-        quantities_row = pd.DataFrame({
-            'Stock1': [f"Qty: {block['quantities'][0]}"],
-            'Stock2': [f"Qty: {block['quantities'][1]}"],
-            'Stock3': [f"Qty: {block['quantities'][2]}"],
-            'Stock4': [f"Qty: {block['quantities'][3]}"],
-            'Stock5': [f"Qty: {block['quantities'][4]}"],
-            'Date': [None], 'Basket Value': [None], 'Returns': [None], 'NAV': [None]
-        })
-
-        # Concatenate the stock names and quantities row with the block data
-        block_data = pd.concat([stock_names_row, quantities_row, block_data], ignore_index=True)
+        # Add a column to indicate the stock names for the block
+        for i, stock_name in enumerate(block['stock_names']):
+            block_data[f'Stock{i + 1}_Name'] = stock_name
 
         # Append to the combined DataFrame
         combined_data = pd.concat([combined_data, block_data], ignore_index=True)
@@ -156,12 +144,9 @@ def main():
         # Filter the combined data by the selected date range
         filtered_data = filter_data_by_date(combined_data, selected_range)
 
-        # Ensure stock names for the latest block are displayed at the start
-        if not filtered_data.empty:
-            st.write("### Combined Stock Data Table")
-            st.dataframe(filtered_data.reset_index(drop=True))
-        else:
-            st.error("No data found for the selected date range.")
+        # Display the combined filtered data in a single table
+        st.write("### Combined Stock Data Table")
+        st.dataframe(filtered_data.reset_index(drop=True))
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
