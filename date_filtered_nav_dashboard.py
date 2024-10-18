@@ -104,17 +104,17 @@ def process_excel_data(data):
     for block in stock_blocks:
         block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
 
-        # Create a row for stock names
+        # Insert stock names row at the start of the block data
         stock_row = pd.DataFrame({
-            'Date': [None], 
+            'Date': [None],  # Leave date empty
             'Stock1': [block['stock_names'][0]], 
             'Stock2': [block['stock_names'][1]], 
             'Stock3': [block['stock_names'][2]], 
             'Stock4': [block['stock_names'][3]], 
             'Stock5': [block['stock_names'][4]], 
-            'Basket Value': [None], 
-            'Returns': [None], 
-            'NAV': [None]
+            'Basket Value': [None],  # No basket value for stock name row
+            'Returns': [None],       # No returns for stock name row
+            'NAV': [None]            # No NAV for stock name row
         })
 
         # Append stock name row followed by actual data
@@ -363,23 +363,23 @@ def main():
     nav_data = load_nav_data(file_path)
 
     if not nav_data.empty:
-        # Process the Excel data and detect stock name changes (combine into a single table)
-        combined_data = process_excel_data(nav_data)
+        # Allow the user to select a date range
+        date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
+        selected_range = st.selectbox("Select Date Range", date_ranges)
+
+        # Filter the data by the selected date range before processing the blocks
+        filtered_nav_data = filter_data_by_date(nav_data, selected_range)
+
+        # Process the filtered Excel data and detect stock name changes (combine into a single table)
+        combined_data = process_excel_data(filtered_nav_data)
 
         if combined_data.empty:
             st.error("No valid stock data found in the workbook.")
             return
 
-        # Allow the user to select a date range
-        date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
-        selected_range = st.selectbox("Select Date Range", date_ranges)
-
-        # Filter the combined data by the selected date range
-        filtered_data = filter_data_by_date(combined_data, selected_range)
-
         # Display the combined filtered data in a single table
         st.write("### Combined Stock Data Table")
-        st.dataframe(filtered_data.reset_index(drop=True))
+        st.dataframe(combined_data.reset_index(drop=True))
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
