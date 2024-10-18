@@ -102,12 +102,17 @@ def process_excel_data(data):
         # Rename columns in the block data
         block_data = block_data.rename(columns=column_mapping)
 
-        # Add a column to indicate the stock names for the block
-        for i, stock_name in enumerate(block['stock_names']):
-            block_data[f'Stock{i + 1}_Name'] = stock_name
+        # Add stock names for the latest date in the block
+        stock_names_row = {col: block['stock_names'][i] for i, col in enumerate(stock_columns)}
+        # Insert a row at the beginning of the block data with stock names
+        stock_names_row.update({'Date': 'Stock Names', 'Basket Value': None, 'Returns': None, 'NAV': None})
+        stock_names_df = pd.DataFrame([stock_names_row])
+
+        # Combine the stock names row with the actual block data
+        block_combined = pd.concat([stock_names_df, block_data], ignore_index=True)
 
         # Append to the combined DataFrame
-        combined_data = pd.concat([combined_data, block_data], ignore_index=True)
+        combined_data = pd.concat([combined_data, block_combined], ignore_index=True)
 
     return combined_data
 
