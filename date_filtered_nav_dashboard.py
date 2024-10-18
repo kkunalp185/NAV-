@@ -35,6 +35,19 @@ def load_full_data(file_path):
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
 
+def load_nav_data(file_path):
+    try:
+        data = pd.read_excel(file_path, sheet_name=0)  # Load full sheet data without limiting columns
+        # Ensure 'Date' column is datetime; coerce errors to handle non-date values
+        if 'Date' in data.columns:
+            data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+        else:
+            st.error("Date column not found in the dataset.")
+        return data
+    except Exception as e:
+        st.error(f"Error reading Excel file: {e}")
+        return pd.DataFrame()
+
 # Function to load NAV data from the selected workbook
 def process_excel_data(data):
     stock_blocks = []
