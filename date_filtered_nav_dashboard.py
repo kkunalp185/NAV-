@@ -27,6 +27,7 @@ def list_workbooks(directory):
 def load_nav_data(file_path):
     try:
         data = pd.read_excel(file_path, sheet_name=0, usecols="A:J")  # Load columns A-J
+        st.write("Columns in the dataset:", list(data.columns))
         if 'NAV' not in data.columns or 'Date' not in data.columns:
             st.error("NAV or Date column not found in the selected workbook.")
             return pd.DataFrame()
@@ -61,10 +62,10 @@ def process_excel_data(data):
     stock_blocks = []
     current_block = None
 
-    # Dynamically find the column that contains 'Stocks'
+    # Dynamically find the column that contains 'Stocks' (case-insensitive)
     stock_column = None
     for col in data.columns:
-        if data[col].astype(str).str.contains('Stocks').any():
+        if 'stock' in col.lower():  # Make the search case-insensitive
             stock_column = col
             break
 
@@ -72,9 +73,11 @@ def process_excel_data(data):
         st.error("No 'Stocks' column found in the workbook.")
         return []
 
+    st.write(f"Identified 'Stocks' column: {stock_column}")  # Debugging step
+
     # Iterate through the rows of the DataFrame
     for idx, row in data.iterrows():
-        if isinstance(row[stock_column], str) and row[stock_column] == 'Stocks':  # Detect when stock names change
+        if isinstance(row[stock_column], str) and 'Stocks' in row[stock_column]:  # Detect when stock names change
             if current_block:
                 current_block['end_idx'] = idx - 1  # End the current block before the next 'Stocks' row
                 stock_blocks.append(current_block)  # Save the completed block
@@ -118,6 +121,7 @@ def process_excel_data(data):
         combined_data = pd.concat([combined_data, block_data], ignore_index=True)
 
     return combined_data
+
 
 
 # Function to recalculate NAV starting from 100
