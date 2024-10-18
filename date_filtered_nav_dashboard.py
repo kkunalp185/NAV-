@@ -104,17 +104,17 @@ def process_excel_data(data):
     for block in stock_blocks:
         block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
 
-        # Insert stock names row at the start of the block data
+        # Create a row for stock names and leave the rest as None
         stock_row = pd.DataFrame({
-            'Date': [None],  # Leave date empty
+            'Date': [None], 
             'Stock1': [block['stock_names'][0]], 
             'Stock2': [block['stock_names'][1]], 
             'Stock3': [block['stock_names'][2]], 
             'Stock4': [block['stock_names'][3]], 
             'Stock5': [block['stock_names'][4]], 
-            'Basket Value': [None],  # No basket value for stock name row
-            'Returns': [None],       # No returns for stock name row
-            'NAV': [None]            # No NAV for stock name row
+            'Basket Value': [None], 
+            'Returns': [None], 
+            'NAV': [None]
         })
 
         # Append stock name row followed by actual data
@@ -124,27 +124,6 @@ def process_excel_data(data):
         combined_data = pd.concat([combined_data, block_data], ignore_index=True)
 
     return combined_data
-
-    # Rename stock columns to Stock1, Stock2, etc. and process blocks of data
-    for block in stock_blocks:
-        block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
-        stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
-
-        # Map original stock names to Stock1, Stock2, etc.
-        column_mapping = {data.columns[i]: stock_columns[i - 2] for i in range(2, 7)}
-
-        # Rename columns in the block data
-        block_data = block_data.rename(columns=column_mapping)
-
-        # Add a column to indicate the stock names for the block
-        for i, stock_name in enumerate(block['stock_names']):
-            block_data[f'Stock{i + 1}_Name'] = stock_name
-
-        # Append to the combined DataFrame
-        combined_data = pd.concat([combined_data, block_data], ignore_index=True)
-
-    return combined_data
-
 
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
@@ -363,23 +342,23 @@ def main():
     nav_data = load_nav_data(file_path)
 
     if not nav_data.empty:
-        # Allow the user to select a date range
-        date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
-        selected_range = st.selectbox("Select Date Range", date_ranges)
-
-        # Filter the data by the selected date range before processing the blocks
-        filtered_nav_data = filter_data_by_date(nav_data, selected_range)
-
-        # Process the filtered Excel data and detect stock name changes (combine into a single table)
-        combined_data = process_excel_data(filtered_nav_data)
+        # Process the Excel data and detect stock name changes (combine into a single table)
+        combined_data = process_excel_data(nav_data)
 
         if combined_data.empty:
             st.error("No valid stock data found in the workbook.")
             return
 
+        # Allow the user to select a date range
+        date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
+        selected_range = st.selectbox("Select Date Range", date_ranges)
+
+        # Filter the combined data by the selected date range
+        filtered_data = filter_data_by_date(combined_data, selected_range)
+
         # Display the combined filtered data in a single table
         st.write("### Combined Stock Data Table")
-        st.dataframe(combined_data.reset_index(drop=True))
+        st.dataframe(filtered_data.reset_index(drop=True))
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
