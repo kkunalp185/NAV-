@@ -48,6 +48,30 @@ def load_nav_data(file_path):
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
 
+def filter_data_by_date(data, date_range):
+    if 'Date' not in data.columns:
+        st.error("Date column not found in the data for filtering.")
+        return data
+
+    # Ensure all 'Date' values are valid datetime objects
+    data = data.dropna(subset=['Date'])
+
+    if date_range == "1 Day":
+        return data.tail(1)
+    elif date_range == "5 Days":
+        return data.tail(5)
+    elif date_range == "1 Month":
+        one_month_ago = data['Date'].max() - timedelta(days=30)
+        return data[data['Date'] >= one_month_ago]
+    elif date_range == "6 Months":
+        six_months_ago = data['Date'].max() - timedelta(days=180)
+        return data[data['Date'] >= six_months_ago]
+    elif date_range == "1 Year":
+        one_year_ago = data['Date'].max() - timedelta(days=365)
+        return data[data['Date'] >= one_year_ago]
+    else:  # Max
+        return data
+
 # Function to load NAV data from the selected workbook
 def process_excel_data(data):
     stock_blocks = []
