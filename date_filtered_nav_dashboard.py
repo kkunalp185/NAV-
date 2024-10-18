@@ -104,6 +104,9 @@ def process_excel_data(data):
         # Rename columns in the block data
         block_data = block_data.rename(columns=column_mapping)
 
+        # Debug: Display stock names for each block
+        st.write(f"Stock Names for Block {len(stock_blocks)}: {block['stock_names']}")
+
         # Create a row for stock names (add it before the block data)
         stock_names_row = pd.DataFrame([[None] * len(block_data.columns)], columns=block_data.columns)
         for i, stock_name in enumerate(block['stock_names']):
