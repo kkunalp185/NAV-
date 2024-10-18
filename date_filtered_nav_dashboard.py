@@ -62,22 +62,20 @@ def process_excel_data(data):
     stock_blocks = []
     current_block = None
 
-    # Dynamically find the column that contains 'Stocks' (case-insensitive)
+    # Dynamically find the column that contains 'Stocks'
     stock_column = None
     for col in data.columns:
-        if 'stock' in col.lower():  # Make the search case-insensitive
+        if data[col].astype(str).str.contains('Stocks').any():
             stock_column = col
             break
 
     if not stock_column:
         st.error("No 'Stocks' column found in the workbook.")
-        return []
-
-    st.write(f"Identified 'Stocks' column: {stock_column}")  # Debugging step
+        return pd.DataFrame()
 
     # Iterate through the rows of the DataFrame
     for idx, row in data.iterrows():
-        if isinstance(row[stock_column], str) and 'Stocks' in row[stock_column]:  # Detect when stock names change
+        if isinstance(row[stock_column], str) and row[stock_column] == 'Stocks':  # Detect when stock names change
             if current_block:
                 current_block['end_idx'] = idx - 1  # End the current block before the next 'Stocks' row
                 stock_blocks.append(current_block)  # Save the completed block
@@ -93,7 +91,7 @@ def process_excel_data(data):
     # Create a combined DataFrame to store all the blocks
     combined_data = pd.DataFrame()
 
-    # Rename stock columns to Stock1, Stock2, etc. and process blocks of data
+    # Rename stock columns to Stock1, Stock2, etc., and process blocks of data
     for block in stock_blocks:
         block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
         stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
@@ -104,7 +102,7 @@ def process_excel_data(data):
         # Rename columns in the block data
         block_data = block_data.rename(columns=column_mapping)
 
-        # Insert a row with the stock names before the data for the block
+        # Create a new DataFrame row that shows only stock names and no other data
         stock_names_row = pd.DataFrame({
             'Stock1': [block['stock_names'][0]],
             'Stock2': [block['stock_names'][1]],
@@ -114,14 +112,13 @@ def process_excel_data(data):
             'Date': [None], 'Basket Value': [None], 'Returns': [None], 'NAV': [None]
         })
 
-        # Concatenate stock names row with the block data
-        block_data = pd.concat([stock_names_row, block_data], ignore_index=True)
+        # Concatenate the stock names row with the block data
+        combined_block_data = pd.concat([stock_names_row, block_data], ignore_index=True)
 
-        # Append to the combined DataFrame
-        combined_data = pd.concat([combined_data, block_data], ignore_index=True)
+        # Append the combined block data to the final DataFrame
+        combined_data = pd.concat([combined_data, combined_block_data], ignore_index=True)
 
     return combined_data
-
 
 
 # Function to recalculate NAV starting from 100
@@ -324,7 +321,6 @@ def git_add_commit_push(modified_files):
 
     except subprocess.CalledProcessError as e:
         print(f"Error during git operation: {e}")
-
 
 def main():
     st.title("NAV Data Dashboard")
