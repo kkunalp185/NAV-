@@ -101,9 +101,18 @@ def process_excel_data(data):
         # Rename columns in the block data
         block_data = block_data.rename(columns=column_mapping)
 
-        # Add a column to indicate the stock names for the block
-        for i, stock_name in enumerate(block['stock_names']):
-            block_data[f'Stock{i + 1}_Name'] = stock_name
+        # Create a row with the stock names, all other columns (Date, Basket Value, etc.) will be None
+        stock_names_row = pd.DataFrame({
+            'Stock1': [block['stock_names'][0]],
+            'Stock2': [block['stock_names'][1]],
+            'Stock3': [block['stock_names'][2]],
+            'Stock4': [block['stock_names'][3]],
+            'Stock5': [block['stock_names'][4]],
+            'Date': [None], 'Basket Value': [None], 'Returns': [None], 'NAV': [None]
+        })
+
+        # Concatenate stock names row with the block data
+        block_data = pd.concat([stock_names_row, block_data], ignore_index=True)
 
         # Append to the combined DataFrame
         combined_data = pd.concat([combined_data, block_data], ignore_index=True)
@@ -312,7 +321,6 @@ def git_add_commit_push(modified_files):
 
     except subprocess.CalledProcessError as e:
         print(f"Error during git operation: {e}")
-
 def main():
     st.title("NAV Data Dashboard")
 
