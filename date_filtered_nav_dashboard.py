@@ -57,7 +57,6 @@ def filter_data_by_date(data, date_range):
         return data[data['Date'] >= one_year_ago]
     else:  # Max
         return data
-
 def process_excel_data(data):
     stock_blocks = []
     current_block = None
@@ -71,7 +70,7 @@ def process_excel_data(data):
 
     if not stock_column:
         st.error("No 'Stocks' column found in the workbook.")
-        return pd.DataFrame()
+        return []
 
     # Iterate through the rows of the DataFrame
     for idx, row in data.iterrows():
@@ -91,7 +90,7 @@ def process_excel_data(data):
     # Create a combined DataFrame to store all the blocks
     combined_data = pd.DataFrame()
 
-    # Rename stock columns to Stock1, Stock2, etc., and process blocks of data
+    # Rename stock columns to Stock1, Stock2, etc. and process blocks of data
     for block in stock_blocks:
         block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
         stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
@@ -102,23 +101,15 @@ def process_excel_data(data):
         # Rename columns in the block data
         block_data = block_data.rename(columns=column_mapping)
 
-        # Create a new DataFrame row that shows only stock names and no other data
-        stock_names_row = pd.DataFrame({
-            'Stock1': [block['stock_names'][0]],
-            'Stock2': [block['stock_names'][1]],
-            'Stock3': [block['stock_names'][2]],
-            'Stock4': [block['stock_names'][3]],
-            'Stock5': [block['stock_names'][4]],
-            'Date': [None], 'Basket Value': [None], 'Returns': [None], 'NAV': [None]
-        })
+        # Add a column to indicate the stock names for the block
+        for i, stock_name in enumerate(block['stock_names']):
+            block_data[f'Stock{i + 1}_Name'] = stock_name
 
-        # Concatenate the stock names row with the block data
-        combined_block_data = pd.concat([stock_names_row, block_data], ignore_index=True)
-
-        # Append the combined block data to the final DataFrame
-        combined_data = pd.concat([combined_data, combined_block_data], ignore_index=True)
+        # Append to the combined DataFrame
+        combined_data = pd.concat([combined_data, block_data], ignore_index=True)
 
     return combined_data
+
 
 
 # Function to recalculate NAV starting from 100
@@ -363,3 +354,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
