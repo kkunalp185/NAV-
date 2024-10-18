@@ -21,13 +21,15 @@ def list_workbooks(directory):
 # Function to load NAV data from the selected workbook and handle date parsing
 def load_nav_data(file_path):
     try:
-        data = pd.read_excel(file_path, sheet_name=0)  # Load full sheet data without limiting columns
+        data = pd.read_excel(file_path, sheet_name=0, header=None)  # Load full sheet data without headers
         # Ensure 'Date' column is datetime; coerce errors to handle non-date values
+        data.columns = data.iloc[0]  # Use the first row as headers
+        data = data.drop(0)  # Drop the first row after making it the header
         if 'Date' in data.columns:
             data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
         else:
             st.error("Date column not found in the dataset.")
-        return data
+        return data.reset_index(drop=True)  # Reset the index after modifications
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
@@ -91,7 +93,7 @@ def process_excel_data(data):
     # Create a combined DataFrame to store all the blocks
     combined_data = pd.DataFrame()
 
-    # Rename stock columns to Stock1, Stock2, etc. and process blocks of data
+    # Rename stock columns to Stock1, Stock2, etc., and process blocks of data
     for block in stock_blocks:
         block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
         stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
@@ -102,17 +104,13 @@ def process_excel_data(data):
         # Rename columns in the block data
         block_data = block_data.rename(columns=column_mapping)
 
-        # Add stock names for the latest date in the block
-        stock_names_row = {col: block['stock_names'][i] for i, col in enumerate(stock_columns)}
-        # Insert a row at the beginning of the block data with stock names
-        stock_names_row.update({'Date': 'Stock Names', 'Basket Value': None, 'Returns': None, 'NAV': None})
-        stock_names_df = pd.DataFrame([stock_names_row])
+        # Create a row for stock names (add it before the block data)
+        stock_names_row = pd.DataFrame([[None] * len(block_data.columns)], columns=block_data.columns)
+        for i, stock_name in enumerate(block['stock_names']):
+            stock_names_row[f'Stock{i + 1}'] = stock_name
 
-        # Combine the stock names row with the actual block data
-        block_combined = pd.concat([stock_names_df, block_data], ignore_index=True)
-
-        # Append to the combined DataFrame
-        combined_data = pd.concat([combined_data, block_combined], ignore_index=True)
+        # Append the stock names row and then the block data
+        combined_data = pd.concat([combined_data, stock_names_row, block_data], ignore_index=True)
 
     return combined_data
 
