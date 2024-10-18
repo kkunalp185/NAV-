@@ -113,16 +113,25 @@ def process_excel_data(data):
 # Function to insert stock names for the relevant block above the selected time period's data
 def insert_stock_names_above_data(combined_data, filtered_data):
     final_data = pd.DataFrame()
+    last_inserted_block = None
 
     # Iterate over the filtered dates to find the relevant blocks
     for date in filtered_data['Date']:
+        block_found = False
+
         for idx, row in combined_data.iterrows():
+            # Check if the row is a stock names row (without date)
             if pd.isna(row['Date']):
-                # Add stock names row to the final data
-                final_data = pd.concat([final_data, row.to_frame().T], ignore_index=True)
+                current_block = row[['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']].values.tolist()
+
+                # Insert stock names only if not already inserted for the block
+                if last_inserted_block != current_block:
+                    final_data = pd.concat([final_data, row.to_frame().T], ignore_index=True)
+                    last_inserted_block = current_block
+                block_found = True
 
             # Check if the date falls within the block and add data
-            elif row['Date'] == date:
+            elif row['Date'] == date and block_found:
                 final_data = pd.concat([final_data, row.to_frame().T], ignore_index=True)
                 break
 
