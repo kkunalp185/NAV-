@@ -82,9 +82,9 @@ def process_excel_data(data):
         st.error("No 'Stocks' column found in the workbook.")
         return []
 
-    # Iterate through the rows of the DataFrame to detect stock name changes
+    # Iterate through the rows of the DataFrame
     for idx, row in data.iterrows():
-        if isinstance(row[stock_column], str) and row[stock_column] == 'Stocks':  # Detect stock name change
+        if isinstance(row[stock_column], str) and row[stock_column] == 'Stocks':  # Detect when stock names change
             if current_block:
                 current_block['end_idx'] = idx - 1  # End the current block before the next 'Stocks' row
                 stock_blocks.append(current_block)  # Save the completed block
@@ -100,16 +100,16 @@ def process_excel_data(data):
     # Create a combined DataFrame to store all the blocks
     combined_data = pd.DataFrame()
 
-    # Process blocks of data and insert stock names under Stock1, Stock2, etc.
+    # Process blocks of data and insert stock names as the first row in the table
     for block in stock_blocks:
         block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
         stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
 
-        # Insert the stock names as the first row under Stock1, Stock2, etc.
+        # Create a row with the stock names and insert it at the top of the block
         stock_name_row = pd.DataFrame([block['stock_names']], columns=stock_columns)
         
-        # Adjust other columns (Date, Basket Value, Returns, NAV)
-        block_data.columns = ['Date', 'Stocks'] + stock_columns + ['Basket Value', 'Returns', 'NAV']
+        # Add the stock names as the first row in the block's data
+        block_data.columns = stock_columns + list(block_data.columns[len(stock_columns):])  # Adjust other columns
         block_data = pd.concat([stock_name_row, block_data], ignore_index=True)
 
         # Append to the combined DataFrame
@@ -317,6 +317,7 @@ def git_add_commit_push(modified_files):
 
     except subprocess.CalledProcessError as e:
         print(f"Error during git operation: {e}")
+        
 def main():
     st.title("NAV Data Dashboard")
 
@@ -335,7 +336,7 @@ def main():
     nav_data = load_nav_data(file_path)
 
     if not nav_data.empty:
-        # Process the Excel data and handle stock name changes
+        # Process the Excel data and detect stock name changes (combine into a single table)
         combined_data = process_excel_data(nav_data)
 
         if combined_data.empty:
@@ -349,7 +350,7 @@ def main():
         # Filter the combined data by the selected date range
         filtered_data = filter_data_by_date(combined_data, selected_range)
 
-        # Display the combined filtered data in a single table
+        # Display the combined filtered data in a single table with stock names as the first row
         st.write("### Combined Stock Data Table")
         st.dataframe(filtered_data.reset_index(drop=True))
 
