@@ -152,9 +152,12 @@ def main():
         # Filter the combined data by the selected date range
         filtered_data = filter_data_by_date(combined_data, selected_range)
 
-        # Display the combined filtered data in a single table
-        st.write("### Combined Stock Data Table")
-        st.dataframe(filtered_data.reset_index(drop=True))
+        # Ensure stock names for the latest block are displayed at the start
+        if not filtered_data.empty:
+            st.write("### Combined Stock Data Table")
+            st.dataframe(filtered_data.reset_index(drop=True))
+        else:
+            st.error("No data found for the selected date range.")
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
