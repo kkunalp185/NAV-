@@ -22,11 +22,15 @@ def list_workbooks(directory):
 def load_nav_data(file_path):
     try:
         data = pd.read_excel(file_path, sheet_name=0)  # Load the full sheet data
+        # Attempt to convert the 'Date' column to datetime, handling errors
+        if 'Date' in data.columns:
+            data['Date'] = pd.to_datetime(data['Date'], errors='coerce')  # Convert dates with error handling
+        else:
+            st.error("Date column not found in the dataset.")
         return data
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
-
 # Function to filter data based on the selected date range
 def filter_data_by_date(data, date_range):
     if 'Date' not in data.columns:
