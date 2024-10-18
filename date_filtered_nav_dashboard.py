@@ -22,7 +22,7 @@ def list_workbooks(directory):
 def load_nav_data(file_path):
     try:
         # Load the data without limiting columns
-        data = pd.read_excel(file_path, sheet_name=0,headers=None)  # Skip the first row with column names
+        data = pd.read_excel(file_path, sheet_name=0, header=None)  # Skip the first row with column names
         st.write("Columns in the dataset:", list(data.columns))  # Print column names for debugging
         st.write("Sample data:", data.head())  # Print first few rows for debugging
 
