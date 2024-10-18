@@ -57,6 +57,69 @@ def filter_data_by_date(data, date_range):
     else:  # Max
         return data
 
+def process_excel_data(data):
+    stock_blocks = []
+    current_block = None
+
+    # Dynamically find the column that contains 'Stocks'
+    stock_column = None
+    for col in data.columns:
+        if data[col].astype(str).str.contains('Stocks').any():
+            stock_column = col
+            break
+
+    if not stock_column:
+        st.error("No 'Stocks' column found in the workbook.")
+        return []
+
+    # Iterate through the rows of the DataFrame
+    for idx, row in data.iterrows():
+        if isinstance(row[stock_column], str) and row[stock_column] == 'Stocks':  # Detect when stock names change
+            if current_block:
+                current_block['end_idx'] = idx - 1  # End the current block before the next 'Stocks' row
+                stock_blocks.append(current_block)  # Save the completed block
+
+            # Create a new block
+            stock_names = row[2:7].tolist()  # Get stock names from columns C to G
+            current_block = {'stock_names': stock_names, 'start_idx': idx + 2, 'end_idx': None}
+
+    if current_block:
+        current_block['end_idx'] = len(data) - 1  # Handle the last block until the end of the dataset
+        stock_blocks.append(current_block)
+
+    # Create a combined DataFrame to store all the blocks
+    combined_data = pd.DataFrame()
+
+    # Rename stock columns to Stock1, Stock2, etc. and process blocks of data
+    for block in stock_blocks:
+        block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
+        stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
+
+        # Map original stock names to Stock1, Stock2, etc.
+        column_mapping = {data.columns[i]: stock_columns[i - 2] for i in range(2, 7)}
+
+        # Rename columns in the block data
+        block_data = block_data.rename(columns=column_mapping)
+
+        # Insert a row with the stock names before the data for the block
+        stock_names_row = pd.DataFrame({
+            'Stock1': [block['stock_names'][0]],
+            'Stock2': [block['stock_names'][1]],
+            'Stock3': [block['stock_names'][2]],
+            'Stock4': [block['stock_names'][3]],
+            'Stock5': [block['stock_names'][4]],
+            'Date': [None], 'Basket Value': [None], 'Returns': [None], 'NAV': [None]
+        })
+
+        # Concatenate stock names row with the block data
+        block_data = pd.concat([stock_names_row, block_data], ignore_index=True)
+
+        # Append to the combined DataFrame
+        combined_data = pd.concat([combined_data, block_data], ignore_index=True)
+
+    return combined_data
+
+
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
     initial_nav = filtered_data['NAV'].iloc[0]
@@ -262,9 +325,6 @@ def git_add_commit_push(modified_files):
 def main():
     st.title("NAV Data Dashboard")
 
-    # Automatically modify and update all workbooks
-    modify_all_workbooks_and_push_to_github()
-
     # List available workbooks in the directory
     workbooks = list_workbooks(WORKBOOK_DIR)
 
@@ -280,69 +340,26 @@ def main():
     nav_data = load_nav_data(file_path)
 
     if not nav_data.empty:
+        # Process the Excel data and detect stock name changes (combine into a single table)
+        combined_data = process_excel_data(nav_data)
+
+        if combined_data.empty:
+            st.error("No valid stock data found in the workbook.")
+            return
+
+        # Allow the user to select a date range
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
-        filtered_data = filter_data_by_date(nav_data, selected_range)
-        filtered_data['Date'] = filtered_data['Date'].dt.date
 
-        if selected_range not in ["1 Day", "Max"]:
-            filtered_data = recalculate_nav(filtered_data)
-            chart_column = 'Rebased NAV'
-        else:
-            chart_column = 'NAV'
+        # Filter the combined data by the selected date range
+        filtered_data = filter_data_by_date(combined_data, selected_range)
 
-        line_chart = alt.Chart(filtered_data).mark_line().encode(
-            x='Date:T',
-            y=alt.Y(f'{chart_column}:Q', scale=alt.Scale(domain=[80, filtered_data[chart_column].max()])),
-            tooltip=['Date:T', f'{chart_column}:Q']
-        ).properties(
-            width=700,
-            height=400
-        )
-        st.write(f"### Displaying data from {selected_workbook}")
-        st.altair_chart(line_chart, use_container_width=True)
-
-        # Load the workbook to get current stock names
-        try:
-            workbook = openpyxl.load_workbook(file_path)
-            ws = workbook.active  # Assuming the data is in the active sheet
-            
-            # Get stock names from the worksheet (assumes stocks are listed in columns C to G in a row named "Stocks")
-            stocks_row = None
-            for row in range(1, ws.max_row + 1):
-                cell_value = ws.cell(row=row, column=2).value
-                if cell_value == "Stocks":
-                    stocks_row = row
-                    
-
-            if stocks_row is not None:
-                stock_names = []
-                for col in range(3, 8):  # Columns C to G
-                    stock_name = ws.cell(row=stocks_row, column=col).value
-                    if stock_name and isinstance(stock_name, str):
-                        stock_names.append(stock_name)
-                
-                # Rename columns in filtered_data to match the stock names
-                stock_columns = {f'Unnamed: {i+2}': stock_names[i] for i in range(len(stock_names))}
-                filtered_data.rename(columns=stock_columns, inplace=True)
-
-
-            # Remove unnecessary columns before displaying
-            if 'Unnamed: 8' in filtered_data.columns:
-                filtered_data = filtered_data.rename(columns={'Unnamed: 8': 'Returns'})
-
-            # Drop the "Stocks" column if it exists (from column B)
-            filtered_data = filtered_data.drop(columns=['Stocks'], errors='ignore')
-
-            # Display the updated filtered data
-            st.write("### Data Table")
-            st.dataframe(filtered_data.reset_index(drop=True))
-
-        except Exception as e:
-            st.error(f"Error loading workbook to extract stock names: {e}")
+        # Display the combined filtered data in a single table
+        st.write("### Combined Stock Data Table")
+        st.dataframe(filtered_data.reset_index(drop=True))
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
-        
+
 if __name__ == "__main__":
     main()
