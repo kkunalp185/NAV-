@@ -100,22 +100,25 @@ def process_excel_data(data):
     # Create a combined DataFrame to store all the blocks
     combined_data = pd.DataFrame()
 
-    # Rename stock columns to Stock1, Stock2, etc., and process blocks of data
+    # Process blocks of data and insert stock names
     for block in stock_blocks:
         block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
-        stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
 
-        # Map original stock names to Stock1, Stock2, etc.
-        column_mapping = {data.columns[i]: stock_columns[i - 2] for i in range(2, 7)}
+        # Create a row for stock names
+        stock_row = pd.DataFrame({
+            'Date': [None], 
+            'Stock1': [block['stock_names'][0]], 
+            'Stock2': [block['stock_names'][1]], 
+            'Stock3': [block['stock_names'][2]], 
+            'Stock4': [block['stock_names'][3]], 
+            'Stock5': [block['stock_names'][4]], 
+            'Basket Value': [None], 
+            'Returns': [None], 
+            'NAV': [None]
+        })
 
-        # Rename columns in the block data
-        block_data = block_data.rename(columns=column_mapping)
-
-        # Fill the stock names for only the latest date in this block
-        latest_date_row = block_data.iloc[-1]
-        for i, stock_name in enumerate(block['stock_names']):
-            block_data[f'Stock{i + 1}'] = latest_date_row[f'Stock{i + 1}']
-            block_data[f'Stock{i + 1}'] = stock_name  # Replace stock data with the stock names just for that row
+        # Append stock name row followed by actual data
+        block_data = pd.concat([stock_row, block_data], ignore_index=True)
 
         # Append to the combined DataFrame
         combined_data = pd.concat([combined_data, block_data], ignore_index=True)
