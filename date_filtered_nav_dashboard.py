@@ -100,17 +100,20 @@ def process_excel_data(data):
     # Create a combined DataFrame to store all the blocks
     combined_data = pd.DataFrame()
 
-    # Process blocks of data and insert stock names as the first row in the table
+    # Rename stock columns to Stock1, Stock2, etc. and process blocks of data
     for block in stock_blocks:
         block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
         stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
 
-        # Create a row with the stock names and insert it at the top of the block
-        stock_name_row = pd.DataFrame([block['stock_names']], columns=stock_columns)
-        
-        # Add the stock names as the first row in the block's data
-        block_data.columns = stock_columns + list(block_data.columns[len(stock_columns):])  # Adjust other columns
-        block_data = pd.concat([stock_name_row, block_data], ignore_index=True)
+        # Map original stock names to Stock1, Stock2, etc.
+        column_mapping = {data.columns[i]: stock_columns[i - 2] for i in range(2, 7)}
+
+        # Rename columns in the block data
+        block_data = block_data.rename(columns=column_mapping)
+
+        # Add a column to indicate the stock names for the block
+        for i, stock_name in enumerate(block['stock_names']):
+            block_data[f'Stock{i + 1}_Name'] = stock_name
 
         # Append to the combined DataFrame
         combined_data = pd.concat([combined_data, block_data], ignore_index=True)
@@ -349,7 +352,7 @@ def main():
         # Filter the combined data by the selected date range
         filtered_data = filter_data_by_date(combined_data, selected_range)
 
-        # Display the combined filtered data in a single table with stock names as the first row
+        # Display the combined filtered data in a single table
         st.write("### Combined Stock Data Table")
         st.dataframe(filtered_data.reset_index(drop=True))
 
