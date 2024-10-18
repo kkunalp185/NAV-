@@ -22,7 +22,7 @@ def list_workbooks(directory):
 def load_nav_data(file_path):
     try:
         # Load the data and print column names for inspection
-        data = pd.read_excel(file_path, sheet_name=0, header=1)  # Skip the first row if it contains headers
+        data = pd.read_excel(file_path, sheet_name=0, header=0)  # Skip the first row if it contains headers
         st.write("Columns in the dataset:", list(data.columns))  # Display column names for debugging
 
         # Check if any column resembles 'Date' (e.g., misspelled or extra spaces)
