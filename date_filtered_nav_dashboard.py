@@ -18,20 +18,18 @@ def list_workbooks(directory):
         st.error("Directory not found. Please ensure the specified directory exists.")
         return []
 
-# Function to load NAV data from the selected workbook
+# Function to load NAV data from the selected workbook and handle date parsing
 def load_nav_data(file_path):
     try:
-        # Load the full sheet, assuming date is in column A and stocks block starts in column B
-        data = pd.read_excel(file_path, sheet_name=0, header=None)
-        data.columns = ['Date', 'Block', 'Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']
-
-        # Ensure the 'Date' column is parsed as datetime
-        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-
-        # Drop rows where 'Date' is missing (non-date rows like headers)
-        data = data.dropna(subset=['Date']).reset_index(drop=True)
-
-        return data
+        data = pd.read_excel(file_path, sheet_name=0, header=None)  # Load full sheet data without headers
+        # Ensure 'Date' column is datetime; coerce errors to handle non-date values
+        data.columns = data.iloc[0]  # Use the first row as headers
+        data = data.drop(0)  # Drop the first row after making it the header
+        if 'Date' in data.columns:
+            data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+        else:
+            st.error("Date column not found in the dataset.")
+        return data.reset_index(drop=True)  # Reset the index after modifications
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
@@ -41,6 +39,9 @@ def filter_data_by_date(data, date_range):
     if 'Date' not in data.columns:
         st.error("Date column not found in the data for filtering.")
         return data
+
+    # Ensure all 'Date' values are valid datetime objects
+    data = data.dropna(subset=['Date'])
 
     if date_range == "1 Day":
         return data.tail(1)
@@ -63,52 +64,59 @@ def process_excel_data(data):
     stock_blocks = []
     current_block = None
 
+    # Dynamically find the column that contains 'Stocks'
+    stock_column = None
+    for col in data.columns:
+        if data[col].astype(str).str.contains('Stocks').any():
+            stock_column = col
+            break
+
+    if not stock_column:
+        st.error("No 'Stocks' column found in the workbook.")
+        return []
+
     # Iterate through the rows of the DataFrame
     for idx, row in data.iterrows():
-        if isinstance(row['Block'], str) and row['Block'] == 'Stocks':  # Detect when stock names change
+        if isinstance(row[stock_column], str) and row[stock_column] == 'Stocks':  # Detect when stock names change
             if current_block:
                 current_block['end_idx'] = idx - 1  # End the current block before the next 'Stocks' row
                 stock_blocks.append(current_block)  # Save the completed block
 
             # Create a new block
-            stock_names = row[['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']].tolist()  # Get stock names
-            current_block = {'stock_names': stock_names, 'start_idx': idx + 1, 'end_idx': None}
+            stock_names = row[2:7].tolist()  # Get stock names from columns C to G
+            current_block = {'stock_names': stock_names, 'start_idx': idx + 2, 'end_idx': None}
+            st.write(f"DEBUG: Fetched stock names: {stock_names}")  # Debugging statement for stock names
 
     if current_block:
         current_block['end_idx'] = len(data) - 1  # Handle the last block until the end of the dataset
         stock_blocks.append(current_block)
 
-    return stock_blocks
+    # Create a combined DataFrame to store all the blocks
+    combined_data = pd.DataFrame()
 
-# Function to insert stock names before the dates in the filtered data
-def insert_stock_names(data, stock_blocks):
-    final_data = pd.DataFrame()
-
+    # Rename stock columns to Stock1, Stock2, etc., and process blocks of data
     for block in stock_blocks:
-        # Get the block's data
         block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
-        block_data = block_data.reset_index(drop=True)
+        block_dates = block_data['Date'].tolist()
+        st.write(f"DEBUG: Dates for block: {block_dates}")  # Debugging statement for block dates
 
-        # Get the date range for the block
-        start_date = block_data['Date'].min()
-        end_date = block_data['Date'].max()
+        stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
 
-        # Find the dates that match the block date range in the filtered data
-        matching_dates = data[(data['Date'] >= start_date) & (data['Date'] <= end_date)]
+        # Map original stock names to Stock1, Stock2, etc.
+        column_mapping = {data.columns[i]: stock_columns[i - 2] for i in range(2, 7)}
 
-        if not matching_dates.empty:
-            # Create a row for the stock names with None for other columns
-            stock_names_row = pd.DataFrame([[None] * len(data.columns)], columns=data.columns)
-            for i, stock_name in enumerate(block['stock_names']):
-                stock_names_row[f'Stock{i + 1}'] = stock_name
+        # Rename columns in the block data
+        block_data = block_data.rename(columns=column_mapping)
 
-            # Append the stock names row to the final data
-            final_data = pd.concat([final_data, stock_names_row], ignore_index=True)
+        # Create a row for stock names (add it before the block data)
+        stock_names_row = pd.DataFrame([[None] * len(block_data.columns)], columns=block_data.columns)
+        for i, stock_name in enumerate(block['stock_names']):
+            stock_names_row[f'Stock{i + 1}'] = stock_name
 
-        # Append the actual data (dates) for the block
-        final_data = pd.concat([final_data, matching_dates], ignore_index=True)
+        # Append the stock names row and then the block data
+        combined_data = pd.concat([combined_data, stock_names_row, block_data], ignore_index=True)
 
-    return final_data
+    return combined_data
 
 # Main Streamlit app function
 def main():
@@ -129,10 +137,10 @@ def main():
     nav_data = load_nav_data(file_path)
 
     if not nav_data.empty:
-        # Process the Excel data and detect stock name changes (identify stock blocks)
-        stock_blocks = process_excel_data(nav_data)
+        # Process the Excel data and detect stock name changes (combine into a single table)
+        combined_data = process_excel_data(nav_data)
 
-        if not stock_blocks:
+        if combined_data.empty:
             st.error("No valid stock data found in the workbook.")
             return
 
@@ -141,14 +149,11 @@ def main():
         selected_range = st.selectbox("Select Date Range", date_ranges)
 
         # Filter the combined data by the selected date range
-        filtered_data = filter_data_by_date(nav_data, selected_range)
+        filtered_data = filter_data_by_date(combined_data, selected_range)
 
-        # Insert stock names above the matching date ranges
-        final_data = insert_stock_names(filtered_data, stock_blocks)
-
-        # Display the final data in a single table
+        # Display the combined filtered data in a single table
         st.write("### Combined Stock Data Table")
-        st.dataframe(final_data.reset_index(drop=True))
+        st.dataframe(filtered_data.reset_index(drop=True))
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
