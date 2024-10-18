@@ -23,9 +23,12 @@ def load_nav_data(file_path):
     try:
         # Load the data and skip the first row if it contains extra headers
         data = pd.read_excel(file_path, sheet_name=0, header=1)  # Skip the first row if it contains headers
+        
         # Ensure 'Date' column is datetime; coerce errors to handle non-date values
         if 'Date' in data.columns:
             data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+            # Drop rows where 'Date' couldn't be parsed (NaT values)
+            data = data.dropna(subset=['Date'])
         else:
             st.error("Date column not found in the dataset.")
         return data
