@@ -18,30 +18,20 @@ def list_workbooks(directory):
         st.error("Directory not found. Please ensure the specified directory exists.")
         return []
 
-# Function to load NAV data from the selected workbook and handle date parsing
+# Function to load NAV data from the selected workbook
 def load_nav_data(file_path):
     try:
-        data = pd.read_excel(file_path, sheet_name=0, header=None)  # Load full sheet data without headers
+        # Load the full sheet, assuming date is in column A and stocks block starts in column B
+        data = pd.read_excel(file_path, sheet_name=0, header=None)
+        data.columns = ['Date', 'Block', 'Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']
 
-        # Inspect headers and first few rows to identify the Date column
-        st.write("Data Preview (first few rows):")
-        st.write(data.head())  # Debug: Show first few rows for analysis
-
-        # Set the first row as the header
-        data.columns = data.iloc[0]  # Use the first row as headers
-        data = data.drop(0)  # Drop the first row after making it the header
-
-        # Check if 'Date' exists in the headers
-        if 'Date' not in data.columns:
-            st.write("Headers found:")
-            st.write(data.columns)  # Debug: Output the column headers
-            st.error("Date column not found. Please select the correct date column manually.")
-            return pd.DataFrame()  # Return an empty DataFrame if Date column is not found
-
-        # Ensure 'Date' column is datetime; coerce errors to handle non-date values
+        # Ensure the 'Date' column is parsed as datetime
         data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
 
-        return data.reset_index(drop=True)  # Reset the index after modifications
+        # Drop rows where 'Date' is missing (non-date rows like headers)
+        data = data.dropna(subset=['Date']).reset_index(drop=True)
+
+        return data
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
         return pd.DataFrame()
@@ -51,9 +41,6 @@ def filter_data_by_date(data, date_range):
     if 'Date' not in data.columns:
         st.error("Date column not found in the data for filtering.")
         return data
-
-    # Ensure all 'Date' values are valid datetime objects
-    data = data.dropna(subset=['Date'])
 
     if date_range == "1 Day":
         return data.tail(1)
@@ -76,27 +63,16 @@ def process_excel_data(data):
     stock_blocks = []
     current_block = None
 
-    # Dynamically find the column that contains 'Stocks'
-    stock_column = None
-    for col in data.columns:
-        if data[col].astype(str).str.contains('Stocks').any():  # Apply str.contains to the specific column
-            stock_column = col
-            break
-
-    if not stock_column:
-        st.error("No 'Stocks' column found in the workbook.")
-        return []
-
     # Iterate through the rows of the DataFrame
     for idx, row in data.iterrows():
-        if isinstance(row[stock_column], str) and row[stock_column] == 'Stocks':  # Detect when stock names change
+        if isinstance(row['Block'], str) and row['Block'] == 'Stocks':  # Detect when stock names change
             if current_block:
                 current_block['end_idx'] = idx - 1  # End the current block before the next 'Stocks' row
                 stock_blocks.append(current_block)  # Save the completed block
 
             # Create a new block
-            stock_names = row[2:7].tolist()  # Get stock names from columns C to G
-            current_block = {'stock_names': stock_names, 'start_idx': idx + 2, 'end_idx': None}
+            stock_names = row[['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']].tolist()  # Get stock names
+            current_block = {'stock_names': stock_names, 'start_idx': idx + 1, 'end_idx': None}
 
     if current_block:
         current_block['end_idx'] = len(data) - 1  # Handle the last block until the end of the dataset
