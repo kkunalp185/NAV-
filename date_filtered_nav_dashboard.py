@@ -111,34 +111,37 @@ def process_excel_data(data):
     return combined_data
 
 # Function to insert stock names above the relevant block and ensure only one set of stock names is inserted per block
-def insert_stock_names_above_data(combined_data, filtered_data, stock_blocks):
+def insert_stock_names_above_data(combined_data, filtered_data):
     final_data = pd.DataFrame()
     last_inserted_block = None
 
+    # Find stock blocks that match the filtered data's dates
     filtered_dates = filtered_data['Date'].tolist()
 
-    for idx, row in filtered_data.iterrows():
-        current_date = row['Date']
+    for idx, row in combined_data.iterrows():
+        # If the row is a stock names row (without date)
+        if pd.isna(row['Date']):
+            current_block = row[['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']].values.tolist()
 
-        # Find the corresponding stock block for the current date
-        for block in stock_blocks:
-            block_dates = combined_data.iloc[block['start_idx']:block['end_idx'] + 1]['Date'].tolist()
+            # Insert stock names only once per block, when the first relevant date in the block appears
+            if last_inserted_block != current_block:
+                block_data = combined_data.loc[idx + 1:]  # Get data of the current block
+                block_data_dates = block_data.dropna(subset=['Date'])['Date'].tolist()
 
-            # Check if the current date is within this block's date range
-            if current_date in block_dates:
-                current_block = combined_data.iloc[block['start_idx'] - 1]  # Stock names row
-                
-                # If this block's stock names haven't been inserted yet, insert them
-                if last_inserted_block != current_block.values.tolist():
-                    final_data = pd.concat([final_data, current_block.to_frame().T], ignore_index=True)
-                    last_inserted_block = current_block.values.tolist()
+                # Check if any of the block's dates overlap with filtered dates
+                overlap_dates = [d for d in block_data_dates if d in filtered_dates]
 
-        # Append the current date's row
-        final_data = pd.concat([final_data, row.to_frame().T], ignore_index=True)
+                if overlap_dates:
+                    # Insert stock names row just above the first overlap date
+                    final_data = pd.concat([final_data, row.to_frame().T], ignore_index=True)
+                    last_inserted_block = current_block
+
+        # Append data rows to the final data, as long as dates match the filtered dates
+        if row['Date'] in filtered_dates:
+            final_data = pd.concat([final_data, row.to_frame().T], ignore_index=True)
 
     return final_data
 
-# Main Streamlit app function
 def main():
     st.title("NAV Data Dashboard")
 
@@ -166,8 +169,8 @@ def main():
 
         filtered_data = filter_data_by_date(combined_data, selected_range)
 
-        # Insert stock names above the relevant block's data, ensuring stock names appear only once per block
-        final_data = insert_stock_names_above_data(combined_data, filtered_data, stock_blocks)
+        # Insert stock names above the relevant block data
+        final_data = insert_stock_names_above_data(combined_data, filtered_data)
 
         # Display the final data in a single table
         st.write("### Combined Stock Data Table")
