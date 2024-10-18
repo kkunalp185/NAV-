@@ -67,7 +67,7 @@ def process_excel_data(data):
     # Dynamically find the column that contains 'Stocks'
     stock_column = None
     for col in data.columns:
-        if data[col].astype(str).str.contains('Stocks').any():
+        if data[col].astype(str).str.contains('Stocks').any():  # Apply str.contains to the specific column
             stock_column = col
             break
 
