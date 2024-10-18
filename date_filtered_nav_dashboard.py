@@ -104,8 +104,13 @@ def process_excel_data(data):
         # Rename columns in the block data
         block_data = block_data.rename(columns=column_mapping)
 
-        # Debug: Display stock names for each block with proper block index
+        # Get the date period for this block
+        start_date = block_data['Date'].min()
+        end_date = block_data['Date'].max()
+
+        # Debug: Display stock names and date period for each block
         st.write(f"Stock Names for Block {block_idx}: {block['stock_names']}")
+        st.write(f"Date Period for Block {block_idx}: {start_date.date()} to {end_date.date()}")
 
         # Create a row for stock names (add it before the block data)
         stock_names_row = pd.DataFrame([[None] * len(block_data.columns)], columns=block_data.columns)
