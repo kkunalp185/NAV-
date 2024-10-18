@@ -21,14 +21,26 @@ def list_workbooks(directory):
 # Function to load NAV data from the selected workbook and handle date parsing
 def load_nav_data(file_path):
     try:
-        data = pd.read_excel(file_path, sheet_name=0)  # Load full sheet data without headers
-        # Ensure 'Date' column is datetime; coerce errors to handle non-date values
+        data = pd.read_excel(file_path, sheet_name=0, header=None)  # Load full sheet data without headers
+
+        # Inspect headers and first few rows to identify the Date column
+        st.write("Data Preview (first few rows):")
+        st.write(data.head())  # Debug: Show first few rows for analysis
+
+        # Set the first row as the header
         data.columns = data.iloc[0]  # Use the first row as headers
         data = data.drop(0)  # Drop the first row after making it the header
-        if 'Date' in data.columns:
-            data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-        else:
-            st.error("Date column not found in the dataset.")
+
+        # Check if 'Date' exists in the headers
+        if 'Date' not in data.columns:
+            st.write("Headers found:")
+            st.write(data.columns)  # Debug: Output the column headers
+            st.error("Date column not found. Please select the correct date column manually.")
+            return pd.DataFrame()  # Return an empty DataFrame if Date column is not found
+
+        # Ensure 'Date' column is datetime; coerce errors to handle non-date values
+        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+
         return data.reset_index(drop=True)  # Reset the index after modifications
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
