@@ -115,25 +115,30 @@ def insert_stock_names_above_data(combined_data, filtered_data):
     final_data = pd.DataFrame()
     last_inserted_block = None
 
-    # Iterate over the filtered dates to find the relevant blocks
-    for date in filtered_data['Date']:
-        block_found = False
+    # Find stock blocks that match the filtered data's dates
+    filtered_dates = filtered_data['Date'].tolist()
 
-        for idx, row in combined_data.iterrows():
-            # Check if the row is a stock names row (without date)
-            if pd.isna(row['Date']):
-                current_block = row[['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']].values.tolist()
+    for idx, row in combined_data.iterrows():
+        # If the row is a stock names row (without date)
+        if pd.isna(row['Date']):
+            current_block = row[['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']].values.tolist()
 
-                # Insert stock names only if not already inserted for the block
-                if last_inserted_block != current_block:
+            # Insert stock names only once per block, when the first relevant date in the block appears
+            if last_inserted_block != current_block:
+                block_data = combined_data.loc[idx + 1:]  # Get data of the current block
+                block_data_dates = block_data.dropna(subset=['Date'])['Date'].tolist()
+
+                # Check if any of the block's dates overlap with filtered dates
+                overlap_dates = [d for d in block_data_dates if d in filtered_dates]
+
+                if overlap_dates:
+                    # Insert stock names row just above the first overlap date
                     final_data = pd.concat([final_data, row.to_frame().T], ignore_index=True)
                     last_inserted_block = current_block
-                block_found = True
 
-            # Check if the date falls within the block and add data
-            elif row['Date'] == date and block_found:
-                final_data = pd.concat([final_data, row.to_frame().T], ignore_index=True)
-                break
+        # Append data rows to the final data, as long as dates match the filtered dates
+        if row['Date'] in filtered_dates:
+            final_data = pd.concat([final_data, row.to_frame().T], ignore_index=True)
 
     return final_data
 
