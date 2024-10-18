@@ -21,16 +21,7 @@ def list_workbooks(directory):
 # Function to load NAV data from the selected workbook and handle date parsing
 def load_nav_data(file_path):
     try:
-        # Load the data without limiting columns
-        data = pd.read_excel(file_path, sheet_name=0)  # Skip the first row with column names
-        st.write("Columns in the dataset:", list(data.columns))  # Print column names for debugging
-        st.write("Sample data:", data.head())  # Print first few rows for debugging
-
-        # Ensure 'Date' column is datetime; coerce errors to handle non-date values
-        if 'Date' in data.columns:
-            data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-        else:
-            st.error("Date column not found in the dataset.")
+        data = pd.read_excel(file_path, sheet_name=0)  # Load the full sheet data
         return data
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
@@ -44,6 +35,7 @@ def filter_data_by_date(data, date_range):
 
     # Ensure all 'Date' values are valid datetime objects
     data = data.dropna(subset=['Date'])
+    data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
 
     if date_range == "1 Day":
         return data.tail(1)
@@ -61,34 +53,29 @@ def filter_data_by_date(data, date_range):
     else:  # Max
         return data
 
-# Function to process the Excel data and identify stock name changes dynamically
+# Function to process the Excel data and identify stock blocks dynamically
 def process_excel_data(data):
     stock_blocks = []
     current_block = None
 
-    # Dynamically search for the 'Stocks' row
-    stock_row_idx = None
+    # Iterate through the rows to detect stock and quantity rows
     for idx, row in data.iterrows():
-        if row.astype(str).str.contains('Stocks', case=False, na=False).any():
-            stock_row_idx = idx
-            break
-
-    if stock_row_idx is None:
-        st.error("No 'Stocks' row found in the workbook.")
-        return []
-
-    st.write(f"Found 'Stocks' row at index: {stock_row_idx}")  # Debugging
-
-    # Process stock blocks based on stock changes
-    for idx, row in data.iterrows():
-        if idx == stock_row_idx:  # When the stock names row is encountered
+        if isinstance(row['Stocks'], str) and row['Stocks'] == 'Stocks':  # Detect the stock row
             if current_block:
-                current_block['end_idx'] = idx - 1
-                stock_blocks.append(current_block)
+                current_block['end_idx'] = idx - 1  # End the current block before the next 'Stocks' row
+                stock_blocks.append(current_block)  # Save the completed block
 
-            # Create a new block
+            # Create a new block for the current stock configuration
             stock_names = row[2:7].tolist()  # Get stock names from columns C to G
-            current_block = {'stock_names': stock_names, 'start_idx': idx + 2, 'end_idx': None}
+            quantities_row = data.iloc[idx + 1]  # The next row should be the quantities row
+            quantities = quantities_row[2:7].tolist()  # Get quantities from columns C to G
+
+            current_block = {
+                'stock_names': stock_names,
+                'quantities': quantities,
+                'start_idx': idx + 2,  # Data starts from two rows after the stock names
+                'end_idx': None
+            }
 
     if current_block:
         current_block['end_idx'] = len(data) - 1  # Handle the last block until the end of the dataset
@@ -97,18 +84,16 @@ def process_excel_data(data):
     # Create a combined DataFrame to store all the blocks
     combined_data = pd.DataFrame()
 
-    # Rename stock columns to Stock1, Stock2, etc. and process blocks of data
+    # Process and rename columns for each stock block
     for block in stock_blocks:
         block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
+
+        # Rename stock columns to Stock1, Stock2, etc.
         stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
-
-        # Map original stock names to Stock1, Stock2, etc.
         column_mapping = {data.columns[i]: stock_columns[i - 2] for i in range(2, 7)}
-
-        # Rename columns in the block data
         block_data = block_data.rename(columns=column_mapping)
 
-        # Create a row with the stock names, all other columns (Date, Basket Value, etc.) will be None
+        # Create a row with stock names and quantities
         stock_names_row = pd.DataFrame({
             'Stock1': [block['stock_names'][0]],
             'Stock2': [block['stock_names'][1]],
@@ -117,9 +102,17 @@ def process_excel_data(data):
             'Stock5': [block['stock_names'][4]],
             'Date': [None], 'Basket Value': [None], 'Returns': [None], 'NAV': [None]
         })
+        quantities_row = pd.DataFrame({
+            'Stock1': [f"Qty: {block['quantities'][0]}"],
+            'Stock2': [f"Qty: {block['quantities'][1]}"],
+            'Stock3': [f"Qty: {block['quantities'][2]}"],
+            'Stock4': [f"Qty: {block['quantities'][3]}"],
+            'Stock5': [f"Qty: {block['quantities'][4]}"],
+            'Date': [None], 'Basket Value': [None], 'Returns': [None], 'NAV': [None]
+        })
 
-        # Concatenate stock names row with the block data
-        block_data = pd.concat([stock_names_row, block_data], ignore_index=True)
+        # Concatenate the stock names and quantities row with the block data
+        block_data = pd.concat([stock_names_row, quantities_row, block_data], ignore_index=True)
 
         # Append to the combined DataFrame
         combined_data = pd.concat([combined_data, block_data], ignore_index=True)
