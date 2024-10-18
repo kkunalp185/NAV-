@@ -21,16 +21,27 @@ def list_workbooks(directory):
 # Function to load NAV data from the selected workbook and handle date parsing
 def load_nav_data(file_path):
     try:
-        # Load the data and skip the first row if it contains extra headers
+        # Load the data and print column names for inspection
         data = pd.read_excel(file_path, sheet_name=0, header=1)  # Skip the first row if it contains headers
-        
-        # Ensure 'Date' column is datetime; coerce errors to handle non-date values
-        if 'Date' in data.columns:
-            data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-            # Drop rows where 'Date' couldn't be parsed (NaT values)
-            data = data.dropna(subset=['Date'])
-        else:
+        st.write("Columns in the dataset:", list(data.columns))  # Display column names for debugging
+
+        # Check if any column resembles 'Date' (e.g., misspelled or extra spaces)
+        potential_date_columns = [col for col in data.columns if 'date' in col.lower()]
+        if not potential_date_columns:
             st.error("Date column not found in the dataset.")
+            return pd.DataFrame()
+
+        # Use the first matching column that contains 'date'
+        date_column = potential_date_columns[0]
+
+        # Ensure 'Date' column is datetime; coerce errors to handle non-date values
+        data[date_column] = pd.to_datetime(data[date_column], errors='coerce')
+        # Drop rows where 'Date' couldn't be parsed (NaT values)
+        data = data.dropna(subset=[date_column])
+
+        # Rename the detected date column to "Date" for consistency
+        data = data.rename(columns={date_column: 'Date'})
+
         return data
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
