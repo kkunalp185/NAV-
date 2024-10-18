@@ -94,7 +94,7 @@ def process_excel_data(data):
     combined_data = pd.DataFrame()
 
     # Rename stock columns to Stock1, Stock2, etc., and process blocks of data
-    for block in stock_blocks:
+    for block_idx, block in enumerate(stock_blocks, start=1):
         block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
         stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
 
@@ -104,8 +104,8 @@ def process_excel_data(data):
         # Rename columns in the block data
         block_data = block_data.rename(columns=column_mapping)
 
-        # Debug: Display stock names for each block
-        st.write(f"Stock Names for Block {len(stock_blocks)}: {block['stock_names']}")
+        # Debug: Display stock names for each block with proper block index
+        st.write(f"Stock Names for Block {block_idx}: {block['stock_names']}")
 
         # Create a row for stock names (add it before the block data)
         stock_names_row = pd.DataFrame([[None] * len(block_data.columns)], columns=block_data.columns)
