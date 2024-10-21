@@ -76,7 +76,7 @@ def process_excel_data(data):
             # Create a new block
             stock_names = row[['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']].tolist()  # Get stock names from columns C to G
             current_block = {'stock_names': stock_names, 'start_idx': idx + 2, 'end_idx': None, 'dates': []}  # Include dates
-            st.write(f"DEBUG: Fetched stock names: {stock_names}")
+           
 
     if current_block:
         current_block['end_idx'] = len(data) - 1  # Handle the last block until the end of the dataset
@@ -85,7 +85,7 @@ def process_excel_data(data):
     # Add dates to each stock block
     for block in stock_blocks:
         block['dates'] = data.iloc[block['start_idx']:block['end_idx'] + 1].dropna(subset=['Date'])['Date'].tolist()
-        st.write(f"DEBUG: Dates for block: {block['dates']}")
+        
 
     return stock_blocks
 
