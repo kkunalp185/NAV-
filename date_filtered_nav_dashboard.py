@@ -69,61 +69,43 @@ def process_excel_data(data):
 
             # Create a new block
             stock_names = row[['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']].tolist()  # Get stock names from columns C to G
-            current_block = {'stock_names': stock_names, 'start_idx': idx + 2, 'end_idx': None}  # Skip 'Quantities' row
+            current_block = {'stock_names': stock_names, 'start_idx': idx + 2, 'end_idx': None, 'dates': []}  # Include dates
             st.write(f"DEBUG: Fetched stock names: {stock_names}")
 
     if current_block:
         current_block['end_idx'] = len(data) - 1  # Handle the last block until the end of the dataset
         stock_blocks.append(current_block)
 
-    # Create a combined DataFrame to store all the blocks
-    combined_data = pd.DataFrame()
-
-    # Rename stock columns to Stock1, Stock2, etc. and process blocks of data
+    # Add dates to each stock block
     for block in stock_blocks:
-        block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
+        block['dates'] = data.iloc[block['start_idx']:block['end_idx'] + 1].dropna(subset=['Date'])['Date'].tolist()
+        st.write(f"DEBUG: Dates for block: {block['dates']}")
 
-        # Skip the 'Quantities' row
-        block_data = block_data[block_data['Header'] != 'Quantities']
-
-        # Insert stock names once before the block's data
-        stock_names_row = pd.DataFrame([[None] * len(block_data.columns)], columns=block_data.columns)
-        for i, stock_name in enumerate(block['stock_names']):
-            stock_names_row[f'Stock{i + 1}'] = stock_name
-
-        # Add the stock names row and the block data to the combined DataFrame
-        combined_data = pd.concat([combined_data, stock_names_row, block_data], ignore_index=True)
-
-    return combined_data
+    return stock_blocks
 
 # Function to insert stock names for the relevant block above the selected time period's data
-def insert_stock_names_above_data(combined_data, filtered_data):
+def insert_stock_names_above_data(stock_blocks, filtered_data):
     final_data = pd.DataFrame()
-    last_inserted_block = None
 
     filtered_dates = filtered_data['Date'].tolist()
 
-    # Process the combined data, and insert stock names once for each block
-    for idx, row in combined_data.iterrows():
-        # If the row is a stock names row (without a date)
-        if pd.isna(row['Date']):
-            current_block = row[['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']].values.tolist()
+    for block in stock_blocks:
+        # Check if any dates from this block overlap with filtered dates
+        overlap_dates = [date for date in block['dates'] if date in filtered_dates]
 
-            # Insert stock names only if the block contains dates matching the filtered data
-            block_data = combined_data.loc[idx + 1:].dropna(subset=['Date'])  # Get data for the current block (dates only)
-            block_dates = block_data['Date'].tolist()
+        # If there are overlapping dates, insert the stock names above the first relevant date
+        if overlap_dates:
+            # Insert the stock names once, before the first matching date in the block
+            stock_names_row = pd.DataFrame([[None] * len(filtered_data.columns)], columns=filtered_data.columns)
+            for i, stock_name in enumerate(block['stock_names']):
+                stock_names_row[f'Stock{i + 1}'] = stock_name
 
-            # Check if any block dates overlap with the filtered dates
-            overlap_dates = [date for date in block_dates if date in filtered_dates]
+            # Add the stock names row to the final data
+            final_data = pd.concat([final_data, stock_names_row], ignore_index=True)
 
-            # Insert the stock names only once if there's an overlap
-            if overlap_dates and last_inserted_block != current_block:
-                final_data = pd.concat([final_data, row.to_frame().T], ignore_index=True)
-                last_inserted_block = current_block  # Set last inserted block to prevent duplicates
-
-        # Append the actual data rows to the final data, if they match the filtered dates
-        if row['Date'] in filtered_dates:
-            final_data = pd.concat([final_data, row.to_frame().T], ignore_index=True)
+            # Add the block's data that overlaps with the filtered data
+            block_data = filtered_data[filtered_data['Date'].isin(overlap_dates)]
+            final_data = pd.concat([final_data, block_data], ignore_index=True)
 
     return final_data
 
@@ -146,10 +128,10 @@ def main():
     nav_data = load_nav_data(file_path)
 
     if not nav_data.empty:
-        # Process the Excel data and detect stock name changes (combine into a single table)
-        combined_data = process_excel_data(nav_data)
+        # Process the Excel data and detect stock name changes, including block dates
+        stock_blocks = process_excel_data(nav_data)
 
-        if combined_data.empty:
+        if not stock_blocks:
             st.error("No valid stock data found in the workbook.")
             return
 
@@ -157,11 +139,11 @@ def main():
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
 
-        # Filter the combined data by the selected date range
-        filtered_data = filter_data_by_date(combined_data, selected_range)
+        # Filter the nav_data by the selected date range
+        filtered_data = filter_data_by_date(nav_data, selected_range)
 
         # Insert stock names above the relevant block data
-        final_data = insert_stock_names_above_data(combined_data, filtered_data)
+        final_data = insert_stock_names_above_data(stock_blocks, filtered_data)
 
         # Display the combined filtered data in a single table
         st.write("### Combined Stock Data Table")
