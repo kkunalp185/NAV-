@@ -115,7 +115,12 @@ def insert_stock_names_above_data(stock_blocks, filtered_data):
 
     return final_data
 
+def highlight_stock_names(df, highlighted_rows):
+    def highlight_row(row):
+        # If the index of the row is in highlighted_rows, apply background color
+        return ['background-color: yellow' if row.name in highlighted_rows else '' for _ in row]
 
+    return df.style.apply(highlight_row, axis=1)
 
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
@@ -370,9 +375,12 @@ def main():
         # Insert stock names above the relevant block data
         final_data = insert_stock_names_above_data(stock_blocks, filtered_data)
 
-        # Display the combined filtered data in a single table
+        highlighted_table = highlight_stock_names(final_data.reset_index(drop=True), highlighted_rows)
+
+        # Display the combined filtered data with highlighted stock names
         st.write("### Combined Stock Data Table")
-        st.dataframe(final_data.reset_index(drop=True))
+        st.dataframe(highlighted_table)
+
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
