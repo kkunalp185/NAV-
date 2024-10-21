@@ -25,7 +25,9 @@ def list_workbooks(directory):
 # Function to load NAV data from the selected workbook
 def load_nav_data(file_path):
     try:
-        data = pd.read_excel(file_path, sheet_name=0, usecols="A:J")  # Load columns A-J
+        data = pd.read_excel(file_path, sheet_name=0, usecols="A:J")
+        data.columns = ['Date', 'Header', 'Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']
+        # Load columns A-J
         if 'NAV' not in data.columns or 'Date' not in data.columns:
             st.error("NAV or Date column not found in the selected workbook.")
             return pd.DataFrame()
