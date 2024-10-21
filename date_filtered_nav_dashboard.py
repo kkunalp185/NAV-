@@ -19,7 +19,7 @@ def list_workbooks(directory):
 # Function to load NAV data from the selected workbook and handle date parsing
 def load_nav_data(file_path):
     try:
-        data = pd.read_excel(file_path, sheet_name=0, header=None)
+        data = pd.read_excel(file_path, sheet_name=0)
         data.columns = data.iloc[0]  # Use the first row as headers
         data = data.drop(0).reset_index(drop=True)  # Drop the header row and reset index
         if 'Date' in data.columns:
