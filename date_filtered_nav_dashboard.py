@@ -61,6 +61,7 @@ def filter_data_by_date(data, date_range):
     else:  # Max
         return data
 
+# Function to process Excel data and identify stock name changes dynamically
 def process_excel_data(data):
     stock_blocks = []
     current_block = None
@@ -113,6 +114,7 @@ def insert_stock_names_above_data(stock_blocks, filtered_data):
             final_data = pd.concat([final_data, block_data], ignore_index=True)
 
     return final_data
+
 
 
 # Function to recalculate NAV starting from 100
