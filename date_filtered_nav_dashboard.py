@@ -32,6 +32,7 @@ def load_nav_data(file_path):
         
         # Ensure 'Date' column is datetime; coerce errors to handle non-date values
         data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+        data = data.drop_duplicates(subset='Date', keep='first')
 
         # Check if required columns are present
         if 'NAV' not in data.columns or 'Date' not in data.columns:
