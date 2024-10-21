@@ -373,13 +373,12 @@ def main():
         st.altair_chart(line_chart, use_container_width=True)
 
         # Insert stock names above the relevant block data
-        final_data, highlighted_rows = insert_stock_names_above_data(stock_blocks, filtered_data)
+        final_data = insert_stock_names_above_data(stock_blocks, filtered_data)
 
-        highlighted_table = highlight_stock_names(final_data.reset_index(drop=True), highlighted_rows)
-
+        
         # Display the combined filtered data with highlighted stock names
         st.write("### Combined Stock Data Table")
-        st.dataframe(highlighted_table)
+        st.dataframe(final_data)
 
 
     else:
