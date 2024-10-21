@@ -350,28 +350,12 @@ def main():
         # Filter the nav_data by the selected date range
         filtered_data = filter_data_by_date(nav_data, selected_range)
 
-        # Recalculate NAV if needed
-        if selected_range not in ["1 Day", "Max"]:
-            filtered_data = recalculate_nav(filtered_data)
-
         # Insert stock names above the relevant block data
         final_data = insert_stock_names_above_data(stock_blocks, filtered_data)
 
         # Display the combined filtered data in a single table
         st.write("### Combined Stock Data Table")
         st.dataframe(final_data.reset_index(drop=True))
-
-        # Plot the filtered data using Altair
-        chart_column = 'Rebased NAV' if 'Rebased NAV' in filtered_data.columns else 'NAV'
-        line_chart = alt.Chart(filtered_data).mark_line().encode(
-            x='Date:T',
-            y=alt.Y(f'{chart_column}:Q', scale=alt.Scale(domain=[80, filtered_data[chart_column].max()])),
-            tooltip=['Date:T', f'{chart_column}:Q']
-        ).properties(
-            width=700,
-            height=400
-        )
-        st.altair_chart(line_chart, use_container_width=True)
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
