@@ -320,6 +320,7 @@ def git_add_commit_push(modified_files):
 
 def main():
     st.title("NAV Data Dashboard")
+    modify_all_workbooks_and_push_to_github()
 
     # List available workbooks in the directory
     workbooks = list_workbooks(WORKBOOK_DIR)
@@ -349,6 +350,22 @@ def main():
 
         # Filter the nav_data by the selected date range
         filtered_data = filter_data_by_date(nav_data, selected_range)
+        if selected_range not in ["1 Day", "Max"]:
+            filtered_data = recalculate_nav(filtered_data)
+            chart_column = 'Rebased NAV'
+        else:
+            chart_column = 'NAV'
+
+        line_chart = alt.Chart(filtered_data).mark_line().encode(
+            x='Date:T',
+            y=alt.Y(f'{chart_column}:Q', scale=alt.Scale(domain=[80, filtered_data[chart_column].max()])),
+            tooltip=['Date:T', f'{chart_column}:Q']
+        ).properties(
+            width=700,
+            height=400
+        )
+        st.write(f"### Displaying data from {selected_workbook}")
+        st.altair_chart(line_chart, use_container_width=True)
 
         # Insert stock names above the relevant block data
         final_data = insert_stock_names_above_data(stock_blocks, filtered_data)
