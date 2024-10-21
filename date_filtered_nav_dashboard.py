@@ -19,9 +19,10 @@ def list_workbooks(directory):
 # Function to load NAV data from the selected workbook and handle date parsing
 def load_nav_data(file_path):
     try:
-        data = pd.read_excel(file_path, sheet_name=0, header=None)  # Load the entire sheet, without treating any row as headers
-        # Assuming the first row contains stock names for the initial block, we preserve it
-        data.columns = ['Date', 'Basket Value', 'Returns', 'NAV', 'Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
+        data = pd.read_excel(file_path, sheet_name=0)  # Load full sheet data without limiting columns
+        
+        # Ensure the first row remains as it contains stock names for the initial block
+        data.columns = ['Date', 'Header', 'Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']
         
         # Ensure 'Date' column is datetime; coerce errors to handle non-date values
         if 'Date' in data.columns:
@@ -39,7 +40,7 @@ def filter_data_by_date(data, date_range):
         st.error("Date column not found in the data for filtering.")
         return data
 
-    data = data.dropna(subset=['Date'])  # Remove rows where Date is not valid
+    data = data.dropna(subset=['Date'])
 
     if date_range == "1 Day":
         return data.tail(1)
@@ -62,51 +63,38 @@ def process_excel_data(data):
     stock_blocks = []
     current_block = None
 
-    # Dynamically find the column that contains 'Stocks'
-    stock_column = None
-    for col in data.columns:
-        if data[col].astype(str).str.contains('Stocks').any():
-            stock_column = col
-            break
-
-    if not stock_column:
-        st.error("No 'Stocks' column found in the workbook.")
-        return []
-
-    # Process the stock name blocks, including the first row
+    # Iterate through the rows of the DataFrame
     for idx, row in data.iterrows():
-        # For the first row, treat it as a stock block (initial block)
-        if idx == 0 or (isinstance(row[stock_column], str) and row[stock_column] == 'Stocks'):
+        if isinstance(row['Header'], str) and row['Header'] == 'Stocks':  # Detect when stock names change
             if current_block:
-                current_block['end_idx'] = idx - 1
-                stock_blocks.append(current_block)
+                current_block['end_idx'] = idx - 1  # End the current block before the next 'Stocks' row
+                stock_blocks.append(current_block)  # Save the completed block
 
-            stock_names = row[4:9].tolist()  # Get stock names from columns 4 to 8
-            current_block = {'stock_names': stock_names, 'start_idx': idx + 1, 'end_idx': None}
+            # Create a new block
+            stock_names = row[['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']].tolist()  # Get stock names from columns C to G
+            current_block = {'stock_names': stock_names, 'start_idx': idx + 2, 'end_idx': None}  # Skip 'Quantities' row
             st.write(f"DEBUG: Fetched stock names: {stock_names}")
 
-    # Add the last block to the list of blocks
     if current_block:
-        current_block['end_idx'] = len(data) - 1
+        current_block['end_idx'] = len(data) - 1  # Handle the last block until the end of the dataset
         stock_blocks.append(current_block)
 
-    # Create a combined DataFrame to store all the stock blocks
+    # Create a combined DataFrame to store all the blocks
     combined_data = pd.DataFrame()
 
-    # Process each stock block
+    # Rename stock columns to Stock1, Stock2, etc. and process blocks of data
     for block in stock_blocks:
         block_data = data.iloc[block['start_idx']:block['end_idx'] + 1].copy()
-        block_dates = block_data['Date'].tolist()
-        st.write(f"DEBUG: Dates for block: {block_dates}")
 
-        stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
+        # Skip the 'Quantities' row
+        block_data = block_data[block_data['Header'] != 'Quantities']
 
-        # Create stock names row
+        # Insert stock names once before the block's data
         stock_names_row = pd.DataFrame([[None] * len(block_data.columns)], columns=block_data.columns)
         for i, stock_name in enumerate(block['stock_names']):
             stock_names_row[f'Stock{i + 1}'] = stock_name
 
-        # Insert stock names row before block data
+        # Add the stock names row and the block data to the combined DataFrame
         combined_data = pd.concat([combined_data, stock_names_row, block_data], ignore_index=True)
 
     return combined_data
@@ -147,12 +135,14 @@ def insert_stock_names_above_data(combined_data, filtered_data):
 def main():
     st.title("NAV Data Dashboard")
 
+    # List available workbooks in the directory
     workbooks = list_workbooks(WORKBOOK_DIR)
 
     if not workbooks:
         st.error("No Excel workbooks found in the specified directory.")
         return
 
+    # Display the data for a specific workbook (example: the first one)
     selected_workbook = st.selectbox("Select a workbook", workbooks)
     
     file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
@@ -160,21 +150,24 @@ def main():
     nav_data = load_nav_data(file_path)
 
     if not nav_data.empty:
+        # Process the Excel data and detect stock name changes (combine into a single table)
         combined_data = process_excel_data(nav_data)
 
         if combined_data.empty:
             st.error("No valid stock data found in the workbook.")
             return
 
+        # Allow the user to select a date range
         date_ranges = ["1 Day", "5 Days", "1 Month", "6 Months", "1 Year", "Max"]
         selected_range = st.selectbox("Select Date Range", date_ranges)
 
+        # Filter the combined data by the selected date range
         filtered_data = filter_data_by_date(combined_data, selected_range)
 
         # Insert stock names above the relevant block data
         final_data = insert_stock_names_above_data(combined_data, filtered_data)
 
-        # Display the final data in a single table
+        # Display the combined filtered data in a single table
         st.write("### Combined Stock Data Table")
         st.dataframe(final_data.reset_index(drop=True))
 
