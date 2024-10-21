@@ -139,7 +139,7 @@ def main():
         st.error("No Excel workbooks found in the specified directory.")
         return
 
-    # Display the data for a specific workbook
+    # Display the data for a specific workbook (example: the first one)
     selected_workbook = st.selectbox("Select a workbook", workbooks)
     
     file_path = os.path.join(WORKBOOK_DIR, selected_workbook)
@@ -161,46 +161,10 @@ def main():
         # Filter the combined data by the selected date range
         filtered_data = filter_data_by_date(combined_data, selected_range)
 
-        # Check that the filtered data is not empty
-        if filtered_data.empty:
-            st.warning("No data available for the selected time period.")
-            return
+        # Insert stock names above the relevant block data
+        final_data = insert_stock_names_above_data(combined_data, filtered_data)
 
-        # Create a new dataframe to insert stock names only once per block
-        final_data = pd.DataFrame()
-        current_block_start = None
-
-        for block in stock_blocks:
-            # Filter block dates to find relevant data for the selected range
-            block_data = filter_data_by_date(block['data'], selected_range)
-
-            # If there is no data in this block for the selected date range, skip it
-            if block_data.empty:
-                continue
-
-            # Insert stock names only once above the first row of the block
-            if current_block_start is None or block_data['Date'].iloc[0] != current_block_start:
-                # Insert a row with stock names under the appropriate columns
-                stock_names_row = pd.DataFrame({
-                    'Stock1': [block['stock_names'][0]],
-                    'Stock2': [block['stock_names'][1]],
-                    'Stock3': [block['stock_names'][2]],
-                    'Stock4': [block['stock_names'][3]],
-                    'Stock5': [block['stock_names'][4]],
-                    'Date': [None],
-                    'Basket Value': [None],
-                    'Returns': [None],
-                    'NAV': [None]
-                })
-                final_data = pd.concat([final_data, stock_names_row], ignore_index=True)
-
-                # Set the start date of the block to avoid repeated stock name insertion
-                current_block_start = block_data['Date'].iloc[0]
-
-            # Append the block data after inserting stock names
-            final_data = pd.concat([final_data, block_data], ignore_index=True)
-
-        # Display the final combined data
+        # Display the combined filtered data in a single table
         st.write("### Combined Stock Data Table")
         st.dataframe(final_data.reset_index(drop=True))
 
