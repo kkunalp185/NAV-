@@ -23,9 +23,6 @@ def load_nav_data(file_path):
         data = pd.read_excel(file_path, sheet_name=0, header=None)
         data.columns = ['Date', 'Header', 'Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']
         
-        # Drop the 'Header' column as per the request
-        data.drop('Header', axis=1, inplace=True)
-        
         # Ensure 'Date' column is datetime; coerce errors to handle non-date values
         data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
         
@@ -65,13 +62,13 @@ def process_excel_data(data):
 
     # Iterate through the rows of the DataFrame to detect stock changes
     for idx, row in data.iterrows():
-        if isinstance(row['Stock1'], str) and row['Stock1'] == 'Stocks':  # Detect when stock names change
+        if isinstance(row['Header'], str) and row['Header'] == 'Stocks':  # Detect when stock names change
             if current_block:
                 current_block['end_idx'] = idx - 1  # End the current block before the next 'Stocks' row
                 stock_blocks.append(current_block)  # Save the completed block
 
             # Create a new block
-            stock_names = row[['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']].tolist()  # Get stock names from columns
+            stock_names = row[['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']].tolist()  # Get stock names from columns C to G
             current_block = {'stock_names': stock_names, 'start_idx': idx + 2, 'end_idx': None, 'dates': []}  # Include dates
             st.write(f"DEBUG: Fetched stock names: {stock_names}")
 
@@ -106,9 +103,9 @@ def insert_stock_names_above_data(stock_blocks, filtered_data):
             # Add the stock names row to the final data
             final_data = pd.concat([final_data, stock_names_row], ignore_index=True)
 
-            # Add the block's data that overlaps with the filtered data, without duplicate date entries
+            # Add the block's data that overlaps with the filtered data
             block_data = filtered_data[filtered_data['Date'].isin(overlap_dates)]
-            final_data = pd.concat([final_data, block_data.drop_duplicates(subset=['Date'], keep='first')], ignore_index=True)
+            final_data = pd.concat([final_data, block_data], ignore_index=True)
 
     return final_data
 
