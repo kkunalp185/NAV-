@@ -110,15 +110,14 @@ def process_excel_data(data):
 
     return combined_data
 
-# Function to insert stock names above the relevant block and ensure only one set of stock names is inserted per block
+# Function to insert stock names for the relevant block above the selected time period's data
 def insert_stock_names_above_data(combined_data, filtered_data):
     final_data = pd.DataFrame()
     last_inserted_block = None
 
-    # Get the first date from the filtered data
+    # Find stock blocks that match the filtered data's dates
     filtered_dates = filtered_data['Date'].tolist()
 
-    # Iterate over each block and match it to the relevant date range
     for idx, row in combined_data.iterrows():
         # If the row is a stock names row (without date)
         if pd.isna(row['Date']):
@@ -129,20 +128,19 @@ def insert_stock_names_above_data(combined_data, filtered_data):
                 block_data = combined_data.loc[idx + 1:]  # Get data of the current block
                 block_data_dates = block_data.dropna(subset=['Date'])['Date'].tolist()
 
-                # Check if the first date in the filtered period falls within this block
-                first_filtered_date = filtered_dates[0]  # First date from user-selected period
+                # Check if any of the block's dates overlap with filtered dates
+                overlap_dates = [d for d in block_data_dates if d in filtered_dates]
 
-                if block_data_dates[0] <= first_filtered_date <= block_data_dates[-1]:
-                    # Insert stock names only for this block, just once above the first relevant date
+                if overlap_dates:
+                    # Insert stock names row just above the first overlap date
                     final_data = pd.concat([final_data, row.to_frame().T], ignore_index=True)
                     last_inserted_block = current_block
 
-        # Append the data rows that fall within the filtered period
+        # Append data rows to the final data, as long as dates match the filtered dates
         if row['Date'] in filtered_dates:
             final_data = pd.concat([final_data, row.to_frame().T], ignore_index=True)
 
     return final_data
-
 
 # Main Streamlit app function
 def main():
