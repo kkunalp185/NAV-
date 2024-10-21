@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
 import os
-from datetime import timedelta, datetime
+from datetime import timedelta
 import altair as alt
 import openpyxl
 from openpyxl.styles import NamedStyle
+from datetime import datetime
 import yfinance as yf
 import subprocess
-from openpyxl.utils import get_column_letter
+from openpyxl.utils import get_column_letter # To run git commands
 
 # Define the directory where the workbooks are stored (this is in the same repo)
 WORKBOOK_DIR = "NAV"  # Folder where the Excel workbooks are stored
@@ -25,16 +26,18 @@ def list_workbooks(directory):
 # Function to load NAV data from the selected workbook
 def load_nav_data(file_path):
     try:
-        data = pd.read_excel(file_path, sheet_name=0, usecols="A:J")
+        # Load full sheet data without limiting columns and headers
+        data = pd.read_excel(file_path, sheet_name=0, header=None)
         data.columns = ['Date', 'Header', 'Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']
-        # Load columns A-J
+        
+        # Ensure 'Date' column is datetime; coerce errors to handle non-date values
+        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+
+        # Check if required columns are present
         if 'NAV' not in data.columns or 'Date' not in data.columns:
             st.error("NAV or Date column not found in the selected workbook.")
             return pd.DataFrame()
-        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-        data = data.sort_values(by='Date')
-        data = data.dropna(subset=['Date', 'NAV'])
-        data = data.drop_duplicates(subset='Date', keep='first')
+
         return data
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
@@ -58,13 +61,6 @@ def filter_data_by_date(data, date_range):
     else:  # Max
         return data
 
-# Function to recalculate NAV starting from 100
-def recalculate_nav(filtered_data):
-    initial_nav = filtered_data['NAV'].iloc[0]
-    filtered_data['Rebased NAV'] = (filtered_data['NAV'] / initial_nav) * 100
-    return filtered_data
-
-# Function to process Excel data and identify stock name changes dynamically
 def process_excel_data(data):
     stock_blocks = []
     current_block = None
@@ -117,6 +113,13 @@ def insert_stock_names_above_data(stock_blocks, filtered_data):
             final_data = pd.concat([final_data, block_data], ignore_index=True)
 
     return final_data
+
+
+# Function to recalculate NAV starting from 100
+def recalculate_nav(filtered_data):
+    initial_nav = filtered_data['NAV'].iloc[0]
+    filtered_data['Rebased NAV'] = (filtered_data['NAV'] / initial_nav) * 100
+    return filtered_data
 
 # Function to modify all Excel files in the directory and push them to GitHub
 def modify_all_workbooks_and_push_to_github():
@@ -313,14 +316,8 @@ def git_add_commit_push(modified_files):
     except subprocess.CalledProcessError as e:
         print(f"Error during git operation: {e}")
 
-
-
-# Main Streamlit app function
 def main():
     st.title("NAV Data Dashboard")
-
-    # Automatically modify and update all workbooks
-    modify_all_workbooks_and_push_to_github()
 
     # List available workbooks in the directory
     workbooks = list_workbooks(WORKBOOK_DIR)
@@ -337,7 +334,7 @@ def main():
     nav_data = load_nav_data(file_path)
 
     if not nav_data.empty:
-        # Process the Excel data and detect stock name changes (combine into a single table)
+        # Process the Excel data and detect stock name changes, including block dates
         stock_blocks = process_excel_data(nav_data)
 
         if not stock_blocks:
@@ -351,16 +348,19 @@ def main():
         # Filter the nav_data by the selected date range
         filtered_data = filter_data_by_date(nav_data, selected_range)
 
+        # Recalculate NAV if needed
+        if selected_range not in ["1 Day", "Max"]:
+            filtered_data = recalculate_nav(filtered_data)
+
         # Insert stock names above the relevant block data
         final_data = insert_stock_names_above_data(stock_blocks, filtered_data)
 
-        # Plot chart if applicable
-        if selected_range not in ["1 Day", "Max"]:
-            filtered_data = recalculate_nav(filtered_data)
-            chart_column = 'Rebased NAV'
-        else:
-            chart_column = 'NAV'
+        # Display the combined filtered data in a single table
+        st.write("### Combined Stock Data Table")
+        st.dataframe(final_data.reset_index(drop=True))
 
+        # Plot the filtered data using Altair
+        chart_column = 'Rebased NAV' if 'Rebased NAV' in filtered_data.columns else 'NAV'
         line_chart = alt.Chart(filtered_data).mark_line().encode(
             x='Date:T',
             y=alt.Y(f'{chart_column}:Q', scale=alt.Scale(domain=[80, filtered_data[chart_column].max()])),
@@ -369,12 +369,7 @@ def main():
             width=700,
             height=400
         )
-        st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
-
-        # Display the combined filtered data in a single table
-        st.write("### Combined Stock Data Table")
-        st.dataframe(final_data.reset_index(drop=True))
 
     else:
         st.error("Failed to load data. Please check the workbook format.")
