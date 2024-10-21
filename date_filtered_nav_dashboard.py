@@ -19,16 +19,13 @@ def list_workbooks(directory):
 # Function to load NAV data from the selected workbook and handle date parsing
 def load_nav_data(file_path):
     try:
-        data = pd.read_excel(file_path, sheet_name=0)  # Load full sheet data without limiting columns
-        
-        # Ensure the first row remains as it contains stock names for the initial block
+        # Load full sheet data without limiting columns and headers
+        data = pd.read_excel(file_path, sheet_name=0, header=None)
         data.columns = ['Date', 'Header', 'Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']
         
         # Ensure 'Date' column is datetime; coerce errors to handle non-date values
-        if 'Date' in data.columns:
-            data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-        else:
-            st.error("Date column not found in the dataset.")
+        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+        
         return data
     except Exception as e:
         st.error(f"Error reading Excel file: {e}")
@@ -63,7 +60,7 @@ def process_excel_data(data):
     stock_blocks = []
     current_block = None
 
-    # Iterate through the rows of the DataFrame
+    # Iterate through the rows of the DataFrame to detect stock changes
     for idx, row in data.iterrows():
         if isinstance(row['Header'], str) and row['Header'] == 'Stocks':  # Detect when stock names change
             if current_block:
