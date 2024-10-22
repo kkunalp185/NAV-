@@ -109,20 +109,18 @@ def handle_repeated_dates(stock_blocks, filtered_data):
             
     return updated_data, repeated_dates
 
-# Function to insert stock names for the relevant block above the selected time period's data
 def insert_stock_names_above_data(stock_blocks, filtered_data, repeated_dates):
     final_data = pd.DataFrame()
 
     filtered_dates = filtered_data['Date'].tolist()
-    used_dates = set()  # Keep track of used dates to avoid duplicates
+    used_dates = set()  # To keep track of used dates and avoid duplicates
 
     for block in stock_blocks:
-        # Check if any dates from this block overlap with filtered dates
+        # Get all dates in this block that overlap with the filtered dates
         overlap_dates = [date for date in block['dates'] if date in filtered_dates]
 
-        # If there are overlapping dates, insert the stock names above the first relevant date
         if overlap_dates:
-            # Insert the stock names once, before the first matching date in the block
+            # Insert stock names for the block above the first relevant date
             stock_names_row = pd.DataFrame([[None] * len(filtered_data.columns)], columns=filtered_data.columns)
             for i, stock_name in enumerate(block['stock_names']):
                 stock_names_row[f'Stock{i + 1}'] = stock_name
@@ -130,24 +128,32 @@ def insert_stock_names_above_data(stock_blocks, filtered_data, repeated_dates):
             # Add the stock names row to the final data
             final_data = pd.concat([final_data, stock_names_row], ignore_index=True)
 
-            # Process each date in the block
             for date in overlap_dates:
-                if date in repeated_dates:
-                    # Handle the repeated date by splitting it across blocks
-                    # Add the first instance of the repeated date for the current block
-                    if date not in used_dates:
-                        block_data = filtered_data[filtered_data['Date'] == date]
-                        final_data = pd.concat([final_data, block_data], ignore_index=True)
-                        used_dates.add(date)  # Mark the date as used
-                    else:
-                        # Handle the second instance of the repeated date for the next block
-                        if date in block['dates'] and block_data.empty:
-                            block_data = filtered_data[filtered_data['Date'] == date]
-                            final_data = pd.concat([final_data, block_data], ignore_index=True)
-                            used_dates.add(date)
+                # If the date is repeated, handle both instances separately
+                if date in repeated_dates and date not in used_dates:
+                    # Get the first instance of the repeated date (where 'Returns' has a value)
+                    first_instance = filtered_data[(filtered_data['Date'] == date) & (filtered_data['Returns'].notna())]
+                    # Get the second instance of the repeated date (where 'Returns' is None)
+                    second_instance = filtered_data[(filtered_data['Date'] == date) & (filtered_data['Returns'].isna())]
+
+                    # Add the first instance under the previous stock block
+                    final_data = pd.concat([final_data, first_instance], ignore_index=True)
+
+                    # Add stock names for the new block, and then insert the second instance
+                    stock_names_row_new_block = pd.DataFrame([[None] * len(filtered_data.columns)], columns=filtered_data.columns)
+                    for i, stock_name in enumerate(block['stock_names']):
+                        stock_names_row_new_block[f'Stock{i + 1}'] = stock_name
+
+                    final_data = pd.concat([final_data, stock_names_row_new_block], ignore_index=True)
+
+                    # Now insert the second instance under the new stock block
+                    final_data = pd.concat([final_data, second_instance], ignore_index=True)
+
+                    # Mark the date as used
+                    used_dates.add(date)
 
                 elif date not in used_dates:
-                    # Regular case: insert date-specific data if it's not repeated
+                    # Normal case: handle non-repeated dates
                     block_data = filtered_data[filtered_data['Date'] == date]
                     final_data = pd.concat([final_data, block_data], ignore_index=True)
                     used_dates.add(date)  # Mark the date as used
