@@ -354,13 +354,15 @@ def highlight_rows_with_strings(df):
     return df.style.apply(highlight_row, axis=1)
 
 def hide_duplicate_dates(df):
-    duplicate_mask = df['Date'].duplicated(keep='first')
-    
-    # Filter out the rows where the mask is True (these are the duplicates)
-    df_filtered = df[~duplicate_mask].copy()
-    
-    return df_filtered
+    def hide_duplicates(row):
+        # Set the font color to white for duplicate dates to hide the row
+        if df['Date'].duplicated(keep='first')[row.name]:
+            return ['color: white'] * len(row)  # Set all cells to white (hidden)
+        return [''] * len(row)  # Visible rows remain unchanged
 
+    return df.style.apply(hide_duplicates, axis=1)
+
+    
 
 
 
