@@ -334,7 +334,7 @@ def clean_chart_data(filtered_data, chart_column):
 
 def format_table_data(data):
     # Round numeric columns to 2 decimal places
-    numeric_columns = ['Basket Value', 'Returns', 'NAV', 'Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
+    for col in ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']:
     data[col] = pd.to_numeric(data[col], errors='coerce').round(3).fillna(data[col])
     
     # Format date to exclude time
