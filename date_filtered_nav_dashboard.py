@@ -332,6 +332,16 @@ def clean_chart_data(filtered_data, chart_column):
     clean_data = filtered_data.dropna(subset=[chart_column])
     return clean_data
 
+def format_table_data(data):
+    # Round numeric columns to 2 decimal places
+    numeric_columns = ['Basket Value', 'Returns', 'NAV']
+    data[numeric_columns] = data[numeric_columns].round(2)
+    
+    # Format date to exclude time
+    data['Date'] = data['Date'].dt.strftime('%Y-%m-%d')
+    
+    return data
+
 
 def main():
     st.title("NAV Data Dashboard")
@@ -387,10 +397,11 @@ def main():
 
         # Insert stock names above the relevant block data
         final_data = insert_stock_names_above_data(stock_blocks, filtered_data)
+        final_data = format_table_data(final_data)
 
         
         # Display the combined filtered data with highlighted stock names
-        st.write("### Combined Stock Data Table")
+        st.write("###Stock Data Table")
         st.dataframe(final_data)
 
 
