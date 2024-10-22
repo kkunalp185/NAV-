@@ -32,7 +32,7 @@ def load_nav_data(file_path):
         
         # Ensure 'Date' column is datetime; coerce errors to handle non-date values
         data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-        
+        data = data.drop_duplicates(subset='Date', keep='first')
 
         # Check if required columns are present
         if 'NAV' not in data.columns or 'Date' not in data.columns:
@@ -335,7 +335,7 @@ def format_table_data(data):
         data[col] = pd.to_numeric(data[col], errors='coerce').round(3).fillna(data[col])
     # Format date to exclude time
     data['Date'] = data['Date'].dt.strftime('%Y-%m-%d')
-    data = data.drop_duplicates(subset=['Date'])
+   
     return data
 
 def highlight_rows_with_strings(df):
