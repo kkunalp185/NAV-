@@ -424,12 +424,13 @@ def main():
         hidden_duplicates_table = hide_duplicate_dates(formatted_data)
 
         # Highlight rows that contain string values in 'Stock1' to 'Stock5'
-        highlighted_table = highlight_rows_with_strings(hidden_duplicates_table)
-        
+        highlighted_table = highlight_rows_with_strings(formatted_data)
+        new_table = hidden_duplicates_table.applymap(lambda x: '' if x != '' else 'background-color: yellow')  # Applying string highlights
+
 
         # Display the combined filtered data with highlighted stock names
         st.write("### Stock Data Table")
-        st.dataframe(highlighted_table)
+        st.dataframe(new_table)
 
 
     else:
