@@ -116,12 +116,6 @@ def insert_stock_names_above_data(stock_blocks, filtered_data):
 
     return final_data
 
-def highlight_stock_names(df, highlighted_rows):
-    def highlight_row(row):
-        # If the index of the row is in highlighted_rows, apply background color
-        return ['background-color: yellow' if row.name in highlighted_rows else '' for _ in row]
-
-    return df.style.apply(highlight_row, axis=1)
 
 # Function to recalculate NAV starting from 100
 def recalculate_nav(filtered_data):
@@ -333,6 +327,9 @@ def clean_chart_data(filtered_data, chart_column):
     return clean_data
 
 def format_table_data(data):
+    if 'Header' in data.columns:
+        data = data.drop(columns=['Header'])
+
     # Round numeric columns to 2 decimal places
     for col in ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']:
         data[col] = pd.to_numeric(data[col], errors='coerce').round(3).fillna(data[col])
@@ -340,6 +337,16 @@ def format_table_data(data):
     data['Date'] = data['Date'].dt.strftime('%Y-%m-%d')
     
     return data
+
+def highlight_rows_with_strings(df):
+    def highlight_row(row):
+        # Check if any value in the Stock1-Stock5 columns is a string
+        if any(isinstance(row[col], str) for col in ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']):
+            return ['background-color: yellow'] * len(row)
+        else:
+            return [''] * len(row)
+
+    return df.style.apply(highlight_row, axis=1)
 
 
 def main():
@@ -396,12 +403,14 @@ def main():
 
         # Insert stock names above the relevant block data
         final_data = insert_stock_names_above_data(stock_blocks, filtered_data)
-        final_data = format_table_data(final_data)
+        formatted_data = format_table_data(final_data)
 
-        
+        # Highlight rows that contain string values in 'Stock1' to 'Stock5'
+        highlighted_table = highlight_rows_with_strings(formatted_data)
+
         # Display the combined filtered data with highlighted stock names
         st.write("### Stock Data Table")
-        st.dataframe(final_data)
+        st.dataframe(highlighted_table)
 
 
     else:
