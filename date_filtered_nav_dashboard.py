@@ -339,10 +339,9 @@ def format_table_data(data):
     # Format date to exclude time
     data['Date'] = data['Date'].dt.strftime('%Y-%m-%d')
 
-    # Remove duplicate dates, but keep the first occurrence
-    data = data.drop_duplicates(subset='Date', keep='first')
-
     return data
+
+
 
 def highlight_rows_with_strings(df):
     def highlight_row(row):
@@ -353,6 +352,17 @@ def highlight_rows_with_strings(df):
             return [''] * len(row)
 
     return df.style.apply(highlight_row, axis=1)
+
+def hide_duplicate_dates(df):
+    # Identify duplicates in the 'Date' column (keep the first occurrence)
+    duplicate_mask = df.duplicated(subset='Date', keep='first')
+
+    # Apply a custom CSS style to "hide" rows where duplicate_mask is True
+    def hide_row(row):
+        return ['display: none;' if duplicate_mask[row.name] else '' for _ in row]
+
+    return df.style.apply(hide_row, axis=1)
+
 
 
 def main():
@@ -413,10 +423,11 @@ def main():
 
         # Highlight rows that contain string values in 'Stock1' to 'Stock5'
         highlighted_table = highlight_rows_with_strings(formatted_data)
+        hidden_duplicates_table = hide_duplicate_dates(highlighted_table)
 
         # Display the combined filtered data with highlighted stock names
         st.write("### Stock Data Table")
-        st.dataframe(highlighted_table)
+        st.dataframe(hidden_duplicates_table)
 
 
     else:
