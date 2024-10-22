@@ -126,12 +126,11 @@ def insert_stock_names_above_data(stock_blocks, filtered_data, repeated_dates):
             for i, stock_name in enumerate(block['stock_names']):
                 stock_names_row[f'Stock{i + 1}'] = stock_name
 
-            # Add the stock names row to the final data
+            # Add the stock names row to the final data using pd.concat
             final_data = pd.concat([final_data, stock_names_row], ignore_index=True)
 
-            # Add the block's data that overlaps with the filtered data, ensuring repeated dates are handled
+            # Add the block's data that overlaps with the filtered data using pd.concat
             block_data = filtered_data[filtered_data['Date'].isin(overlap_dates)]
-            block_data = block_data.append(filtered_data[filtered_data['Date'].isin(repeated_dates)])
             final_data = pd.concat([final_data, block_data], ignore_index=True)
 
     return final_data
