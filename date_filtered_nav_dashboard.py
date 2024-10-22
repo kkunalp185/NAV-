@@ -362,9 +362,12 @@ def main():
         else:
             chart_column = 'NAV'
 
-        line_chart = alt.Chart(filtered_data).mark_line().encode(
+        clean_filtered_data = clean_chart_data(filtered_data, chart_column)
+
+
+        line_chart = alt.Chart(clean_filtered_data).mark_line().encode(
             x='Date:T',
-            y=alt.Y(f'{chart_column}:Q', scale=alt.Scale(domain=[80, filtered_data[chart_column].max()])),
+            y=alt.Y(f'{chart_column}:Q', scale=alt.Scale(domain=[80, clean_filtered_data[chart_column].max()])),
             tooltip=['Date:T', f'{chart_column}:Q']
         ).properties(
             width=700,
