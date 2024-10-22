@@ -114,6 +114,7 @@ def insert_stock_names_above_data(stock_blocks, filtered_data, repeated_dates):
     final_data = pd.DataFrame()
 
     filtered_dates = filtered_data['Date'].tolist()
+    used_dates = set()  # Keep track of used dates to avoid duplicates
 
     for block in stock_blocks:
         # Check if any dates from this block overlap with filtered dates
@@ -126,12 +127,15 @@ def insert_stock_names_above_data(stock_blocks, filtered_data, repeated_dates):
             for i, stock_name in enumerate(block['stock_names']):
                 stock_names_row[f'Stock{i + 1}'] = stock_name
 
-            # Add the stock names row to the final data using pd.concat
+            # Add the stock names row to the final data
             final_data = pd.concat([final_data, stock_names_row], ignore_index=True)
 
-            # Add the block's data that overlaps with the filtered data using pd.concat
-            block_data = filtered_data[filtered_data['Date'].isin(overlap_dates)]
-            final_data = pd.concat([final_data, block_data], ignore_index=True)
+            # Process each date in the block and add its corresponding data
+            for date in overlap_dates:
+                if date not in used_dates:
+                    block_data = filtered_data[filtered_data['Date'] == date]
+                    final_data = pd.concat([final_data, block_data], ignore_index=True)
+                    used_dates.add(date)  # Mark the date as used to avoid duplicates
 
     return final_data
 
