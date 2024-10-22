@@ -335,7 +335,7 @@ def format_table_data(data):
         data[col] = pd.to_numeric(data[col], errors='coerce').round(3).fillna(data[col])
     # Format date to exclude time
     data['Date'] = data['Date'].dt.strftime('%Y-%m-%d')
-    
+    data = data.drop_duplicates(subset=['Date'])
     return data
 
 def highlight_rows_with_strings(df):
