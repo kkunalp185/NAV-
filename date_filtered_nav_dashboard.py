@@ -324,6 +324,15 @@ def git_add_commit_push(modified_files):
     except subprocess.CalledProcessError as e:
         print(f"Error during git operation: {e}")
 
+def clean_chart_data(filtered_data, chart_column):
+    # Convert the chart_column to numeric, replacing non-numeric values with NaN
+    filtered_data[chart_column] = pd.to_numeric(filtered_data[chart_column], errors='coerce')
+    
+    # Drop rows where the chart_column is NaN
+    clean_data = filtered_data.dropna(subset=[chart_column])
+    return clean_data
+
+
 def main():
     st.title("NAV Data Dashboard")
     modify_all_workbooks_and_push_to_github()
