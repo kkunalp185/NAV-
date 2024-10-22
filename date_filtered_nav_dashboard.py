@@ -326,17 +326,39 @@ def clean_chart_data(filtered_data, chart_column):
     clean_data = filtered_data.dropna(subset=[chart_column])
     return clean_data
 
-def format_table_data(data):
+def format_and_clean_table_data(data):
+    # Drop the 'Header' column before displaying the data table
     if 'Header' in data.columns:
         data = data.drop(columns=['Header'])
 
-    # Round numeric columns to 2 decimal places
+    # Round numeric values in 'Stock1' to 'Stock5', 'Basket Value', 'Returns', and 'NAV' to 2 decimal places
     for col in ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']:
-        data[col] = pd.to_numeric(data[col], errors='coerce').round(3).fillna(data[col])
+        # Apply rounding only to numeric values, keep string values unchanged
+        data[col] = pd.to_numeric(data[col], errors='coerce').round(2).fillna(data[col])
+
     # Format date to exclude time
     data['Date'] = data['Date'].dt.strftime('%Y-%m-%d')
-   
-    return data
+
+    # Find rows where any of the Stock1 to Stock5 columns contain string values
+    rows_with_strings = data.apply(lambda row: any(isinstance(row[col], str) for col in ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']), axis=1)
+
+    # Get indices of rows with strings
+    string_row_indices = rows_with_strings[rows_with_strings].index
+
+    # Create a list of rows to drop (the rows with strings and their immediate neighbors)
+    rows_to_drop = set()
+
+    for idx in string_row_indices:
+        rows_to_drop.add(idx)  # The row with string values
+        if idx - 1 >= 0:       # The row above, if it exists
+            rows_to_drop.add(idx - 1)
+        if idx + 1 < len(data): # The row below, if it exists
+            rows_to_drop.add(idx + 1)
+
+    # Drop these rows from the data
+    cleaned_data = data.drop(rows_to_drop)
+
+    return cleaned_data
 
 def highlight_rows_with_strings(df):
     def highlight_row(row):
