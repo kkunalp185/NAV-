@@ -92,10 +92,11 @@ def process_excel_data(data):
 
 # Function to insert stock names for the relevant block above the selected time period's data
 def insert_stock_names_above_data(stock_blocks, filtered_data):
+    filtered_data = filtered_data.drop_duplicates(subset=['Date'])
     final_data = pd.DataFrame()
 
     filtered_dates = filtered_data['Date'].tolist()
-
+   
     for block in stock_blocks:
         # Check if any dates from this block overlap with filtered dates
         overlap_dates = [date for date in block['dates'] if date in filtered_dates]
@@ -327,21 +328,16 @@ def clean_chart_data(filtered_data, chart_column):
     return clean_data
 
 def format_table_data(data):
-    # Drop the 'Header' column before displaying the data table
     if 'Header' in data.columns:
         data = data.drop(columns=['Header'])
 
-    # Round numeric values in 'Stock1' to 'Stock5', 'Basket Value', 'Returns', and 'NAV' to 2 decimal places
+    # Round numeric columns to 2 decimal places
     for col in ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']:
-        # Apply rounding only to numeric values, keep string values unchanged
-        data[col] = pd.to_numeric(data[col], errors='coerce').round(2).fillna(data[col])
-
+        data[col] = pd.to_numeric(data[col], errors='coerce').round(3).fillna(data[col])
     # Format date to exclude time
     data['Date'] = data['Date'].dt.strftime('%Y-%m-%d')
-
+   
     return data
-
-
 
 def highlight_rows_with_strings(df):
     def highlight_row(row):
@@ -352,19 +348,6 @@ def highlight_rows_with_strings(df):
             return [''] * len(row)
 
     return df.style.apply(highlight_row, axis=1)
-
-def remove_duplicate_dates(data):
-    # Separate rows where Date is NaN (these are the stock name rows)
-    stock_name_rows = data[data['Date'].isna()]
-
-    # Remove duplicates from rows where Date is not NaN, keep the first occurrence
-    data_without_stock_names = data.dropna(subset=['Date']).drop_duplicates(subset=['Date'], keep='first')
-
-    # Concatenate the stock name rows back with the deduplicated data
-    final_data = pd.concat([stock_name_rows, data_without_stock_names], ignore_index=True)
-
-    return final_data
-
 
 
 def main():
@@ -421,13 +404,10 @@ def main():
 
         # Insert stock names above the relevant block data
         final_data = insert_stock_names_above_data(stock_blocks, filtered_data)
-        final_data = remove_duplicate_dates(final_data)
         formatted_data = format_table_data(final_data)
-        
+
         # Highlight rows that contain string values in 'Stock1' to 'Stock5'
         highlighted_table = highlight_rows_with_strings(formatted_data)
-   
-
 
         # Display the combined filtered data with highlighted stock names
         st.write("### Stock Data Table")
