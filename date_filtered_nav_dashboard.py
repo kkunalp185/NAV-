@@ -425,7 +425,7 @@ def main():
 
         # Insert stock names above the relevant block data
         final_data = insert_stock_names_above_data(stock_blocks, filtered_data)
-        formatted_data = format_table_data(final_data)
+        formatted_data = format_and_clean_table_data(final_data)
 
         # Highlight rows that contain string values in 'Stock1' to 'Stock5'
         highlighted_table = highlight_rows_with_strings(formatted_data)
