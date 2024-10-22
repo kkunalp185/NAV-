@@ -227,18 +227,32 @@ def modify_workbook(filename):
 
             next_date = last_date + timedelta(days=1)
 
-            # Step 3: Identify the last non-zero NAV in column J (NAV)
+            # Step 3: Identify the last non-zero NAV in column J (NAV) and the last valid basket value
             nav_column_index = 10
+            basket_value_column_index = 8
             last_non_zero_nav = None
+            last_basket_value = None
 
             for row in range(last_row, 1, -1):
                 nav_value = ws.cell(row=row, column=nav_column_index).value
+                basket_value = ws.cell(row=row, column=basket_value_column_index).value
+                
                 if isinstance(nav_value, (int, float)) and nav_value != 0:
                     last_non_zero_nav = nav_value
+                
+                if isinstance(basket_value, (int, float)) and basket_value != 0:
+                    last_basket_value = basket_value
+
+                # If both the NAV and basket value are found, break the loop
+                if last_non_zero_nav is not None and last_basket_value is not None:
                     break
 
             if last_non_zero_nav is None:
-                last_non_zero_nav = 100
+                last_non_zero_nav = 100  # Default initial NAV
+
+            if last_basket_value is None:
+                st.warning("No previous basket value found, setting to 100")
+                last_basket_value = 100  # Default basket value in case none is found
 
             # Step 4: Identify existing stock symbols and quantities in columns C to G
             stocks_row = None
@@ -321,12 +335,18 @@ def modify_workbook(filename):
                 ws.cell(row=current_row, column=8, value=basket_value)
                 basket_values.append(basket_value)
 
-                # Calculate returns and insert in column I
-                ret = (basket_value - basket_values[i - 1]) / basket_values[i - 1] if i > 0 and basket_values[i - 1] != 0 else 0
+                # Calculate returns based on the previous basket value
+                if i == 0 and last_basket_value != 0:
+                    ret = (basket_value - last_basket_value) / last_basket_value
+                elif i > 0 and basket_values[i - 1] != 0:
+                    ret = (basket_value - basket_values[i - 1]) / basket_values[i - 1]
+                else:
+                    ret = 0  # In case of divide by zero or missing data
+
                 returns.append(ret)
                 ws.cell(row=current_row, column=9, value=ret)
 
-                # Calculate NAV and insert in column J
+                # Calculate NAV based on the previous NAV and return
                 nav = nav_values[-1] * (1 + ret)
                 nav_values.append(nav)
                 ws.cell(row=current_row, column=10, value=nav)
