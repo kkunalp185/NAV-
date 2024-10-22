@@ -418,14 +418,15 @@ def main():
         # Insert stock names above the relevant block data
         final_data = insert_stock_names_above_data(stock_blocks, filtered_data)
         formatted_data = format_table_data(final_data)
+        hidden_duplicates_table = hide_duplicate_dates(formatted_data)
 
         # Highlight rows that contain string values in 'Stock1' to 'Stock5'
-        highlighted_table = highlight_rows_with_strings(formatted_data)
-        hidden_duplicates_table = hide_duplicate_dates(highlighted_table)
+        highlighted_table = highlight_rows_with_strings(hidden_duplicates_table)
+        
 
         # Display the combined filtered data with highlighted stock names
         st.write("### Stock Data Table")
-        st.dataframe(hidden_duplicates_table)
+        st.dataframe(highlighted_table)
 
 
     else:
