@@ -401,7 +401,7 @@ def main():
 
         
         # Display the combined filtered data with highlighted stock names
-        st.write("###Stock Data Table")
+        st.write("### Stock Data Table")
         st.dataframe(final_data)
 
 
