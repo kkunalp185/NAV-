@@ -354,29 +354,13 @@ def highlight_rows_with_strings(df):
     return df.style.apply(highlight_row, axis=1)
 
 def hide_duplicate_dates(df):
-    # Dictionary to track occurrences of each date
-    date_occurrences = {}
+    duplicate_mask = df['Date'].duplicated(keep='first')
+    
+    # Filter out the rows where the mask is True (these are the duplicates)
+    df_filtered = df[~duplicate_mask].copy()
+    
+    return df_filtered
 
-    # Create a mask to determine which rows to keep
-    keep_mask = []
-
-    for idx, row in df.iterrows():
-        date = row['Date']
-        if date not in date_occurrences:
-            date_occurrences[date] = 0
-        date_occurrences[date] += 1
-
-        # Keep only the 1st and 3rd occurrence of the date
-        if date_occurrences[date] in [1, 3]:
-            keep_mask.append(True)  # Keep this row
-        else:
-            keep_mask.append(False)  # Hide this row
-
-    # Replace the rows to be hidden with empty strings
-    df_to_display = df.copy()
-    df_to_display.loc[~pd.Series(keep_mask), :] = ""  # Replace all columns for hidden rows
-
-    return df_to_display
 
 
 
