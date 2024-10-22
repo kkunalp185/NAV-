@@ -90,13 +90,31 @@ def process_excel_data(data):
 
     return stock_blocks
 
+def handle_repeated_dates(stock_blocks, filtered_data):
+    all_dates = []
+    for block in stock_blocks:
+        all_dates += block['dates']
+    
+    # Identify repeated dates
+    repeated_dates = [date for date in set(all_dates) if all_dates.count(date) > 1]
+
+    # Split the filtered data for repeated dates
+    updated_data = pd.DataFrame()
+    for block in stock_blocks:
+        block_data = filtered_data[filtered_data['Date'].isin(block['dates'])]
+        
+        # For repeated dates, keep them in both blocks
+        if not block_data.empty:
+            updated_data = pd.concat([updated_data, block_data], ignore_index=True)
+            
+    return updated_data, repeated_dates
+
 # Function to insert stock names for the relevant block above the selected time period's data
-def insert_stock_names_above_data(stock_blocks, filtered_data):
-    filtered_data = filtered_data.drop_duplicates(subset=['Date'])
+def insert_stock_names_above_data(stock_blocks, filtered_data, repeated_dates):
     final_data = pd.DataFrame()
 
     filtered_dates = filtered_data['Date'].tolist()
-   
+
     for block in stock_blocks:
         # Check if any dates from this block overlap with filtered dates
         overlap_dates = [date for date in block['dates'] if date in filtered_dates]
@@ -111,8 +129,9 @@ def insert_stock_names_above_data(stock_blocks, filtered_data):
             # Add the stock names row to the final data
             final_data = pd.concat([final_data, stock_names_row], ignore_index=True)
 
-            # Add the block's data that overlaps with the filtered data
+            # Add the block's data that overlaps with the filtered data, ensuring repeated dates are handled
             block_data = filtered_data[filtered_data['Date'].isin(overlap_dates)]
+            block_data = block_data.append(filtered_data[filtered_data['Date'].isin(repeated_dates)])
             final_data = pd.concat([final_data, block_data], ignore_index=True)
 
     return final_data
@@ -402,8 +421,10 @@ def main():
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
 
+        updated_filtered_data, repeated_dates = handle_repeated_dates(stock_blocks, filtered_data)
+
         # Insert stock names above the relevant block data
-        final_data = insert_stock_names_above_data(stock_blocks, filtered_data)
+        final_data = insert_stock_names_above_data(stock_blocks, updated_filtered_data, repeated_dates)
         formatted_data = format_table_data(final_data)
 
         # Highlight rows that contain string values in 'Stock1' to 'Stock5'
