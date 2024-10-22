@@ -353,16 +353,17 @@ def highlight_rows_with_strings(df):
 
     return df.style.apply(highlight_row, axis=1)
 
-def hide_duplicate_dates(df):
-    def hide_duplicates(row):
-        # Set the font color to white for duplicate dates to hide the row
-        if df['Date'].duplicated(keep='first')[row.name]:
-            return ['color: white'] * len(row)  # Set all cells to white (hidden)
-        return [''] * len(row)  # Visible rows remain unchanged
+def remove_duplicate_dates(data):
+    # Separate rows where Date is NaN (these are the stock name rows)
+    stock_name_rows = data[data['Date'].isna()]
 
-    return df.style.apply(hide_duplicates, axis=1)
+    # Remove duplicates from rows where Date is not NaN, keep the first occurrence
+    data_without_stock_names = data.dropna(subset=['Date']).drop_duplicates(subset=['Date'], keep='first')
 
-    
+    # Concatenate the stock name rows back with the deduplicated data
+    final_data = pd.concat([stock_name_rows, data_without_stock_names], ignore_index=True)
+
+    return final_data
 
 
 
@@ -420,17 +421,17 @@ def main():
 
         # Insert stock names above the relevant block data
         final_data = insert_stock_names_above_data(stock_blocks, filtered_data)
+        final_data = remove_duplicate_dates(final_data)
         formatted_data = format_table_data(final_data)
-        hidden_duplicates_table = hide_duplicate_dates(formatted_data)
-
+        
         # Highlight rows that contain string values in 'Stock1' to 'Stock5'
         highlighted_table = highlight_rows_with_strings(formatted_data)
-        new_table = hidden_duplicates_table.applymap(lambda x: '' if x != '' else 'background-color: yellow')  # Applying string highlights
+   
 
 
         # Display the combined filtered data with highlighted stock names
         st.write("### Stock Data Table")
-        st.dataframe(new_table)
+        st.dataframe(highlighted_table)
 
 
     else:
