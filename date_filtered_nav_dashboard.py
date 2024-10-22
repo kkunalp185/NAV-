@@ -444,10 +444,11 @@ def main():
         st.write(f"### Displaying data from {selected_workbook}")
         st.altair_chart(line_chart, use_container_width=True)
 
-        updated_filtered_data, repeated_dates = handle_repeated_dates(filtered_data)
+        updated_filtered_data, repeated_dates, first_instances, second_instances = handle_repeated_dates(filtered_data)
+
 
         # Insert stock names above the relevant block data
-        final_data = insert_stock_names_above_data(stock_blocks, updated_filtered_data, repeated_dates)
+        final_data = insert_stock_names_above_data(stock_blocks,updated_filtered_data, repeated_dates, first_instances, second_instances)
         formatted_data = format_table_data(final_data)
 
         # Highlight rows that contain string values in 'Stock1' to 'Stock5'
