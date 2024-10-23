@@ -410,11 +410,8 @@ def format_table_data(df):
     
     return df
 
-# Use this function before rendering the dataframe
-formatted_data = format_table_data(final_data)
 
-# Display the formatted dataframe
-st.dataframe(formatted_data)
+
 
 
 def highlight_rows_with_strings(df):
