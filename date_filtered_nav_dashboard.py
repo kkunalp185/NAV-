@@ -389,17 +389,33 @@ def clean_chart_data(filtered_data, chart_column):
     clean_data = filtered_data.dropna(subset=[chart_column])
     return clean_data
 
-def format_table_data(data):
-    if 'Header' in data.columns:
-        data = data.drop(columns=['Header'])
+# Function to format and round the numerical columns
+def format_table_data(df):
+    # List of columns to format (Stock1 to Stock5)
+    stock_columns = ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5']
+    
+    # Apply rounding to 2 decimal places for numerical values in stock columns
+    for col in stock_columns:
+        df[col] = df[col].apply(lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else x)
+    
+    # Also round the 'NAV' column to 2 decimal places
+    df['NAV'] = df['NAV'].apply(lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else x)
+    
+    # Optionally, format other columns like 'Returns'
+    df['Returns'] = df['Returns'].apply(lambda x: f"{x:.3f}" if isinstance(x, (int, float)) else x)
+    
+    # Remove the 'Header' column if it exists
+    if 'Header' in df.columns:
+        df = df.drop(columns=['Header'])
+    
+    return df
 
-    # Round numeric columns to 2 decimal places
-    for col in ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']:
-        data[col] = pd.to_numeric(data[col], errors='coerce').round(3).fillna(data[col])
-    # Format date to exclude time
-    data['Date'] = data['Date'].dt.strftime('%Y-%m-%d')
-   
-    return data
+# Use this function before rendering the dataframe
+formatted_data = format_table_data(final_data)
+
+# Display the formatted dataframe
+st.dataframe(formatted_data)
+
 
 def highlight_rows_with_strings(df):
     def highlight_row(row):
