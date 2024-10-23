@@ -375,9 +375,9 @@ def format_table_data(data):
 
     # Round numeric columns to 2 decimal places
     for col in ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']:
-        data[col] = data[col].apply(lambda x: round(x, 2) if isinstance(x, (int, float)) else x)
+        data[col] = pd.to_numeric(data[col], errors='coerce').round(3).fillna(data[col])
     # Format date to exclude time
-   
+    data['Date'] = data['Date'].dt.strftime('%Y-%m-%d')
    
     return data
 
@@ -390,12 +390,6 @@ def highlight_rows_with_strings(df):
             return [''] * len(row)
 
     return df.style.apply(highlight_row, axis=1)
-
-def ensure_arrow_compatibility(df):
-    for col in df.columns:
-        if df[col].dtype == 'object':  # Mixed types
-            df[col] = df[col].astype(str)  # Convert all to string
-    return df
 
 
 def main():
@@ -456,8 +450,6 @@ def main():
         # Insert stock names above the relevant block data
         final_data = insert_stock_names_above_data(stock_blocks,updated_filtered_data, repeated_dates, first_instances, second_instances)
         formatted_data = format_table_data(final_data)
-        formatted_data = ensure_arrow_compatibility(formatted_data)
-        
 
         # Highlight rows that contain string values in 'Stock1' to 'Stock5'
         highlighted_table = highlight_rows_with_strings(formatted_data)
