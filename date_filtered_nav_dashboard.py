@@ -377,7 +377,7 @@ def format_table_data(data):
     for col in ['Stock1', 'Stock2', 'Stock3', 'Stock4', 'Stock5', 'Basket Value', 'Returns', 'NAV']:
         data[col] = data[col].apply(lambda x: round(x, 2) if isinstance(x, (int, float)) else x)
     # Format date to exclude time
-    data['Date'] = data['Date'].dt.strftime('%Y-%m-%d')
+   
    
     return data
 
